@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart';
-import 'package:uploader/enum/enums.dart';
+import 'package:uploader/src/enum/enums.dart';
 
 class PubspecParameters {
   //general

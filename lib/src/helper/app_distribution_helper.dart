@@ -1,6 +1,6 @@
-import 'package:uploader/enum/enums.dart';
-import 'package:uploader/helper/file_helper.dart';
-import 'package:uploader/config/app_distribution/app_distribution_account_config.dart';
+import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
+import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/helper/file_helper.dart';
 
 class AppDistributionHelper {
   final _fileHelper = FileHelper();

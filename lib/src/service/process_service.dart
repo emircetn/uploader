@@ -1,9 +1,10 @@
 import 'dart:io';
-import 'package:uploader/config/ios/ios_account_config.dart';
-import 'package:uploader/config/ios/ios_config.dart';
-import 'package:uploader/constant/path_constants.dart';
-import 'package:uploader/enum/enums.dart';
-import 'package:uploader/util/printer.dart';
+
+import 'package:uploader/src/config/ios/ios_account_config.dart';
+import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/constant/path_constants.dart';
+import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class ProcessService {
   Future<bool> buildIpa({

@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:googleapis/androidpublisher/v3.dart';
 import 'package:googleapis_auth/auth_io.dart';
-import 'package:uploader/config/android/android_account_config.dart';
-import 'package:uploader/config/uploader_config.dart';
-import 'package:uploader/constant/path_constants.dart';
-import 'package:uploader/service/process_service.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/config/android/android_account_config.dart';
+import 'package:uploader/src/config/uploader_config.dart';
+import 'package:uploader/src/constant/path_constants.dart';
+import 'package:uploader/src/service/process_service.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class AndroidUploadService {
   final UploaderConfig config;

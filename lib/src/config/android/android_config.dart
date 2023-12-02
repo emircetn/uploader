@@ -1,5 +1,5 @@
-import 'package:uploader/config/android/android_account_config.dart';
-import 'package:uploader/enum/enums.dart';
+import 'package:uploader/src/config/android/android_account_config.dart';
+import 'package:uploader/src/enum/enums.dart';
 
 final class AndroidConfig {
   final String packageName;

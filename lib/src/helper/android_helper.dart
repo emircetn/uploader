@@ -1,6 +1,6 @@
-import 'package:uploader/config/android/android_account_config.dart';
-import 'package:uploader/helper/file_helper.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/config/android/android_account_config.dart';
+import 'package:uploader/src/helper/file_helper.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class AndroidHelper {
   final _fileHelper = FileHelper();

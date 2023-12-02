@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:uploader/helper/file_helper.dart';
-import 'package:uploader/model/app_detail.dart';
+import 'package:uploader/src/helper/file_helper.dart';
+import 'package:uploader/src/model/app_detail.dart';
 
 class ParseHelper {
   final fileHelper = FileHelper();

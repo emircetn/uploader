@@ -1,9 +1,9 @@
 library uploader;
 
-import 'package:uploader/helper/pubspec_helper.dart';
-import 'package:uploader/helper/upload_helper.dart';
-import 'package:uploader/manager/uploader_manager.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/helper/pubspec_helper.dart';
+import 'package:uploader/src/helper/upload_helper.dart';
+import 'package:uploader/src/manager/uploader_manager.dart';
+import 'package:uploader/src/util/printer.dart';
 
 void main() async {
   final pubspecHelper = PubspecHelper();

@@ -1,5 +1,5 @@
-import 'package:uploader/enum/enums.dart';
-import 'package:uploader/config/app_distribution/app_distribution_account_config.dart';
+import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
+import 'package:uploader/src/enum/enums.dart';
 
 final class AppDistributionConfig {
   final AppDistributionAccountConfig accountConfig;

@@ -1,10 +1,10 @@
-import 'package:uploader/config/android/android_account_config.dart';
-import 'package:uploader/config/android/android_config.dart';
-import 'package:uploader/config/app_distribution/app_distribution_account_config.dart';
-import 'package:uploader/config/app_distribution/app_distribution_config.dart';
-import 'package:uploader/config/ios/ios_account_config.dart';
-import 'package:uploader/config/ios/ios_config.dart';
-import 'package:uploader/enum/enums.dart';
+import 'package:uploader/src/config/android/android_account_config.dart';
+import 'package:uploader/src/config/android/android_config.dart';
+import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
+import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
+import 'package:uploader/src/config/ios/ios_account_config.dart';
+import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/enum/enums.dart';
 
 class UploaderConfig {
   final UploadType uploadType;

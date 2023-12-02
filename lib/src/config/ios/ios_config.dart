@@ -1,4 +1,4 @@
-import 'package:uploader/config/ios/ios_account_config.dart';
+import 'package:uploader/src/config/ios/ios_account_config.dart';
 
 class IosConfig {
   final String ipaName;

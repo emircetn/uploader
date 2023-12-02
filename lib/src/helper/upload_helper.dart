@@ -1,13 +1,13 @@
-import 'package:uploader/config/android/android_config.dart';
-import 'package:uploader/config/app_distribution/app_distribution_config.dart';
-import 'package:uploader/config/ios/ios_config.dart';
-import 'package:uploader/model/pubspec_parameters.dart';
-import 'package:uploader/config/uploader_config.dart';
-import 'package:uploader/enum/enums.dart';
-import 'package:uploader/helper/android_helper.dart';
-import 'package:uploader/helper/app_distribution_helper.dart';
-import 'package:uploader/helper/ios_helper.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/config/android/android_config.dart';
+import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
+import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/config/uploader_config.dart';
+import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/helper/android_helper.dart';
+import 'package:uploader/src/helper/app_distribution_helper.dart';
+import 'package:uploader/src/helper/ios_helper.dart';
+import 'package:uploader/src/model/pubspec_parameters.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class UploadHelper {
   bool checkPubspecParameters(PubspecParameters pubspecParameters) {

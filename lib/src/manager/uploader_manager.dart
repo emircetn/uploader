@@ -1,13 +1,13 @@
 import "dart:convert";
 import "dart:io";
 
-import "package:uploader/config/uploader_config.dart";
-import "package:uploader/helper/parse_helper.dart";
-import "package:uploader/model/app_detail.dart";
-import "package:uploader/service/android_upload_service.dart";
-import "package:uploader/service/ios_upload_service.dart";
-import "package:uploader/service/process_service.dart";
-import "package:uploader/util/printer.dart";
+import "package:uploader/src/config/uploader_config.dart";
+import "package:uploader/src/helper/parse_helper.dart";
+import "package:uploader/src/model/app_detail.dart";
+import "package:uploader/src/service/android_upload_service.dart";
+import "package:uploader/src/service/ios_upload_service.dart";
+import "package:uploader/src/service/process_service.dart";
+import 'package:uploader/src/util/printer.dart';
 
 class UploaderManager {
   final UploaderConfig config;

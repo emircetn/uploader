@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:uploader/model/pubspec_parameters.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/model/pubspec_parameters.dart';
+import 'package:uploader/src/util/printer.dart';
 import 'package:yaml/yaml.dart';
 
 class PubspecHelper {

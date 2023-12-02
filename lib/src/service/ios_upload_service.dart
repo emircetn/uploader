@@ -1,9 +1,9 @@
-import 'package:uploader/config/ios/ios_account_config.dart';
-import 'package:uploader/config/uploader_config.dart';
-import 'package:uploader/constant/path_constants.dart';
-import 'package:uploader/enum/enums.dart';
-import 'package:uploader/service/process_service.dart';
-import 'package:uploader/util/printer.dart';
+import 'package:uploader/src/config/ios/ios_account_config.dart';
+import 'package:uploader/src/config/uploader_config.dart';
+import 'package:uploader/src/constant/path_constants.dart';
+import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/service/process_service.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class IosUploadService {
   final UploaderConfig config;
