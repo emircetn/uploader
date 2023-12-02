@@ -1,6 +1,6 @@
 name: uploader
 description: You can create AAB/APK or IPA and submit them to Play Console, TestFlight and Firebase App Distribution.
-version: 0.0.3
+version: 0.0.4
 homepage: https://github.com/emircetn/uploader
 
 environment:
