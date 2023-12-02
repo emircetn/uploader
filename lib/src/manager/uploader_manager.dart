@@ -25,7 +25,7 @@ class UploaderManager {
     } else {
       showProjectDetails(appDetail);
 
-      Printer.warning("Bu bilgileri onaylıyor musun?(y/n): ");
+      Printer.warning("Do you approve this information?(y/n): ");
 
       String? yOrN = stdin.readLineSync(encoding: utf8);
       if (yOrN != "y" && yOrN != "Y") return false;
