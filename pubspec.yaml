@@ -1,6 +1,6 @@
 name: uploader
 description: It is a deployment package
-version: 0.0.2
+version: 0.0.3
 homepage: https://github.com/emircetn/uploader
 
 environment:
