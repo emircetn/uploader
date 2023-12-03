@@ -1,3 +1,6 @@
+## 0.0.5
+- Update description
+
 ## 0.0.4
 - Add example
 
