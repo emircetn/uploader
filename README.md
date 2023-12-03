@@ -2,7 +2,7 @@
 
 [![Pub Package](https://img.shields.io/pub/v/uploader.svg)](https://pub.dev/packages/uploader)
 
-Uploader is designed to quickly distribute your Flutter applications. With this package, you can generate AAB/APK (Android) and IPA (iOS) files, which can be uploaded to Firebase App Distribution, Play Console, and TestFlight.
+This package is used for creating AAB/APK and IPA files, and sending them to Play Console, TestFlight, and Firebase App Distribution
 
 # Installation
 
