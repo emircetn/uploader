@@ -29,7 +29,8 @@ This package is used for creating AAB/APK and IPA files, and sending them to Pla
 ```yaml
 dev_dependencies:
   uploader: any
-
+```
+```yaml
 uploader:
   platform: all  # iosOnly, androidOnly, all
   uploadType: all # appDistributionOnly, storeOnly, all
@@ -43,13 +44,8 @@ uploader:
   appDistributionConfig:
     androidBuildType : abb # abb, apk 
     androidTesters : null 
-    iosTesters : [
-      "tester1@gmail.com", 
-      "tester2@gmail.com",
-    ]
-    releaseNotes: [
-      "app icon updated"
-    ]
+    iosTesters : ["tester1@gmail.com", "tester2@gmail.com"]
+    releaseNotes: ["app icon updated"]
   extraBuildParameters: null
 ```
 

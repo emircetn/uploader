@@ -21,13 +21,8 @@ uploader:
   appDistributionConfig:
     androidBuildType : abb # abb, apk 
     androidTesters : null 
-    iosTesters : [
-      "tester1@gmail.com", 
-      "tester2@gmail.com",
-    ]
-    releaseNotes: [
-      "app icon updated"
-    ]
+    iosTesters : ["tester1@gmail.com", "tester2@gmail.com"]
+    releaseNotes: ["app icon updated"]
   extraBuildParameters: null
 ```
 After configured, now you can run uploader
