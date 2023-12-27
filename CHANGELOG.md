@@ -1,3 +1,6 @@
+## 0.0.7
+- removed unnecessary use of 'only' from enums 
+
 ## 0.0.6
 - Update readme
 
