@@ -32,7 +32,7 @@ dev_dependencies:
 ```
 ```yaml
 uploader:
-  platform: all  # iosOnly, androidOnly, all
+  platform: all  # ios, android, all
   uploadType: all # appDistributionOnly, storeOnly, all
   iosConfig:
     path: ios_deploy_config.json # must include auth_key and issuer_id
