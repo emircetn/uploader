@@ -26,15 +26,15 @@ enum AppPlatform {
 }
 
 enum UploadType {
-  appDistributionOnly(value: "appDistributionOnly"),
-  storeOnly(value: "storeOnly"),
+  appDistribution(value: "appDistribution"),
+  store(value: "store"),
   all(value: "all");
 
   final String value;
 
   const UploadType({required this.value});
 
-  bool get availableOnAppDistribution => this != storeOnly;
+  bool get availableOnAppDistribution => this != store;
 }
 
 enum Track {
