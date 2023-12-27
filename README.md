@@ -52,7 +52,7 @@ uploader:
 
 
 # Collaborators
-<a href="https://github.com/fatihozkan-github" style="display: flex; align-items: center;">
-  <img src="https://avatars.githubusercontent.com/u/69001201?v=4" width="50" height="50" style="border-radius: 50%; margin-right: 10px;" alt="GitHub Profil Fotoğrafı" />
-  <p style="margin: 0;">Fatihozkan</p>
+
+<a href="https://github.com/emircetn/uploader/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=emircetn/uploader" />
 </a>
