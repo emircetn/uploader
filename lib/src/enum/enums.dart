@@ -13,16 +13,16 @@ enum AndroidBuildType {
 }
 
 enum AppPlatform {
-  iosOnly(value: "iosOnly"),
-  androidOnly(value: "androidOnly"),
+  ios(value: "ios"),
+  android(value: "android"),
   all(value: "all");
 
   final String value;
 
   const AppPlatform({required this.value});
 
-  bool get availableOnAndroid => this != iosOnly;
-  bool get availableOnIos => this != androidOnly;
+  bool get availableOnAndroid => this != ios;
+  bool get availableOnIos => this != android;
 }
 
 enum UploadType {
