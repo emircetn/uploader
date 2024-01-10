@@ -141,7 +141,6 @@ class AndroidUploadService {
       );
 
       final versionCode = bundle.versionCode;
-      Printer.error(versionCode.toString());
 
       await androidPublisher.edits.tracks.update(
         Track(
