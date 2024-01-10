@@ -1,9 +1,9 @@
 name: Bump version and create tag
 
 on:
-  push:
-    branches:
-      - master
+  pull_request:
+    types:
+      - closed
 
 jobs:
   build:
