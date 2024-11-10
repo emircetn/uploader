@@ -3,6 +3,7 @@ library uploader;
 import 'package:uploader/src/helper/pubspec_helper.dart';
 import 'package:uploader/src/helper/upload_helper.dart';
 import 'package:uploader/src/manager/uploader_manager.dart';
+import 'package:uploader/src/util/logger.dart';
 import 'package:uploader/src/util/printer.dart';
 
 void main() async {
@@ -22,11 +23,16 @@ void main() async {
   final uploaderConfig = await uploadHelper.createUploaderConfig(
     pubspecParameters,
   );
+
   if (uploaderConfig == null) {
     Printer.error("uploader config could not be created");
     return;
   }
 
+  if (uploaderConfig.enableLogFileCreation) Logger.instance.init();
+
   final uploaderManager = UploaderManager(config: uploaderConfig);
   await uploaderManager.startUpload();
+
+  if (uploaderConfig.enableLogFileCreation) Logger.instance.close();
 }

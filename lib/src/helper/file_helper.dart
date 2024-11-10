@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 class FileHelper {
-  Future<List<String>> readFileLines(String path) async {
+  Future<List<String>?> readFileLines(String path) async {
     try {
       return await File(path)
           .openRead()
@@ -10,7 +10,7 @@ class FileHelper {
           .transform(const LineSplitter())
           .toList();
     } catch (e) {
-      return [];
+      return null;
     }
   }
 

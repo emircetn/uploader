@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_print
+
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:uploader/src/config/ios/ios_account_config.dart';
@@ -12,6 +15,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'flutter',
       arguments: [
         'build',
@@ -30,6 +34,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'flutter',
       arguments: [
         'build',
@@ -49,6 +54,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'flutter',
       arguments: [
         'build',
@@ -67,6 +73,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -75,7 +82,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -91,6 +98,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -99,7 +107,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -115,6 +123,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -123,7 +132,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -139,6 +148,7 @@ class ProcessService {
     required String ipaName,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'xcrun',
       arguments: [
         'altool',
@@ -156,6 +166,7 @@ class ProcessService {
   }
 
   Future<bool> _runProcess({
+    required AppPlatform platform,
     required String executable,
     required List<String> arguments,
     ProcessStartMode mode = ProcessStartMode.normal,
@@ -168,8 +179,18 @@ class ProcessService {
         mode: mode,
       );
 
-      await stdout.addStream(process.stdout);
-      await stderr.addStream(process.stderr);
+      process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        print("[${platform.value}] $line");
+      });
+      process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        print("[${platform.value}] $line");
+      });
 
       final exitCode = await process.exitCode;
 
