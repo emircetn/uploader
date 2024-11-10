@@ -17,9 +17,11 @@ class PubspecParameters {
 
   //appDistribution
   final AndroidBuildType appDistributionAndroidBuildType;
-  final List<String>? appDistributionAndroidTesters;
-  final List<String>? appDistributionIosTesters;
+  final String? appDistributionAndroidTestersPath;
+  final String? appDistributionIosTestersPath;
   final String? appDistributionReleaseNotesPath;
+
+  //other
   final List<String>? extraBuildParameters;
 
   bool get checkIosParameters => checkString(iosConfigPath);
@@ -36,8 +38,8 @@ class PubspecParameters {
     required this.androidPackageName,
     required this.androidSkslPath,
     this.appDistributionAndroidBuildType = AndroidBuildType.abb,
-    required this.appDistributionAndroidTesters,
-    required this.appDistributionIosTesters,
+    required this.appDistributionAndroidTestersPath,
+    required this.appDistributionIosTestersPath,
     required this.appDistributionReleaseNotesPath,
     required this.extraBuildParameters,
   });
@@ -75,24 +77,17 @@ class PubspecParameters {
                   buildType.value ==
                   appDistributionConfig["androidBuildType"]) ??
               AndroidBuildType.abb,
-      appDistributionIosTesters: appDistributionConfig == null
+      appDistributionIosTestersPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['iosTesters'],
-            ),
-      appDistributionAndroidTesters: appDistributionConfig == null
+          : appDistributionConfig['iosTestersPath'],
+      appDistributionAndroidTestersPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['androidTesters'],
-            ),
+          : appDistributionConfig['androidTestersPath'],
       appDistributionReleaseNotesPath: appDistributionConfig == null
           ? null
           : appDistributionConfig['releaseNotesPath'],
-      extraBuildParameters: appDistributionConfig == null
-          ? null
-          : _parseIterableToList<String>(
-              uploaderMap['extraBuildParameters'],
-            ),
+      extraBuildParameters:
+          _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
     );
   }
 

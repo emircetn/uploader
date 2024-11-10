@@ -38,4 +38,12 @@ class Printer {
     stdout.write(_pen("\n---- [SUCCESS] ----\n$text\n"));
     return true;
   }
+
+  static void log(String text) {
+    _pen
+      ..reset()
+      ..yellow();
+
+    stdout.write(_pen(text));
+  }
 }

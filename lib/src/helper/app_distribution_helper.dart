@@ -1,7 +1,6 @@
 import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/file_helper.dart';
-import 'package:uploader/src/util/printer.dart';
 
 class AppDistributionHelper {
   final _fileHelper = FileHelper();
@@ -20,14 +19,16 @@ class AppDistributionHelper {
 
         final lineList = await _fileHelper.readFileLines(iosGoogleServicePath);
 
-        final index =
-            lineList.indexWhere((element) => element.contains(iosAppIdKey));
-        final line = lineList[index + 1].trim();
+        if (lineList != null) {
+          final index =
+              lineList.indexWhere((element) => element.contains(iosAppIdKey));
+          final line = lineList[index + 1].trim();
 
-        iosAppId = line.substring(
-          initTag.length,
-          line.length - lastTag.length,
-        );
+          iosAppId = line.substring(
+            initTag.length,
+            line.length - lastTag.length,
+          );
+        }
       }
 
       if (platform.availableOnAndroid) {
@@ -37,34 +38,22 @@ class AppDistributionHelper {
         final lineList =
             await _fileHelper.readFileLines(androidGoogleServicePath);
 
-        final index = lineList.indexWhere(
-          (element) => element.contains(
-            androidAppIdKey,
-          ),
-        );
+        if (lineList != null) {
+          final index = lineList.indexWhere(
+            (element) => element.contains(
+              androidAppIdKey,
+            ),
+          );
 
-        final line = lineList[index].split('":').last;
+          final line = lineList[index].split('":').last;
 
-        androidAppId = line.substring(2, line.length - 2).trim();
+          androidAppId = line.substring(2, line.length - 2).trim();
+        }
       }
       return AppDistributionAccountConfig(
-          iosId: iosAppId, androidId: androidAppId);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  Future<List<String>?> getReleaseNotes(String releaseNotesPath) async {
-    try {
-      final releaseNotes = await _fileHelper.readFileLines(releaseNotesPath);
-
-      if (releaseNotes.isEmpty) {
-        Printer.error(
-          "release notes file could not be read, please check the file location",
-        );
-        return null;
-      }
-      return releaseNotes;
+        iosId: iosAppId,
+        androidId: androidAppId,
+      );
     } catch (e) {
       return null;
     }

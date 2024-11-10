@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_print
+
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:uploader/src/config/ios/ios_account_config.dart';
@@ -75,7 +78,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -99,7 +102,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -123,7 +126,7 @@ class ProcessService {
         firebaseAppId,
         if (releaseNotes != null) ...[
           '--release-notes',
-          releaseNotes,
+          ".$releaseNotes",
         ],
         if (testers != null && testers.isNotEmpty) ...[
           '--testers',
@@ -168,8 +171,18 @@ class ProcessService {
         mode: mode,
       );
 
-      await stdout.addStream(process.stdout);
-      await stderr.addStream(process.stderr);
+      process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        print(line);
+      });
+      process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen((line) {
+        print(line);
+      });
 
       final exitCode = await process.exitCode;
 

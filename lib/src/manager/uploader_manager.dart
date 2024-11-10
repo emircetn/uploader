@@ -30,26 +30,23 @@ class UploaderManager {
       String? yOrN = stdin.readLineSync(encoding: utf8);
       if (yOrN != "y" && yOrN != "Y") return false;
 
-      if (config.platform.availableOnIos) {
-        final isSuccess = await IosUploadService(config).upload(
-          config.appDistributionConfig?.accountConfig.iosId,
-        );
-        if (isSuccess) {
-          Printer.success("UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
-        }
+      final futures = await Future.wait([
+        if (config.platform.availableOnAndroid)
+          AndroidUploadService(config).upload(
+            config.appDistributionConfig?.accountConfig.androidId,
+          ),
+        if (config.platform.availableOnIos)
+          IosUploadService(config).upload(
+            config.appDistributionConfig?.accountConfig.iosId,
+          ),
+      ]);
+
+      if (futures.contains(false)) {
+        return false;
       }
 
-      if (config.platform.availableOnAndroid) {
-        final isSuccess = await AndroidUploadService(config).upload(
-          config.appDistributionConfig?.accountConfig.androidId,
-        );
-        if (isSuccess) {
-          Printer.success("UPLOAD PROCESS COMPLETED FOR ANDROID", bold: true);
-        }
-      }
+      return true;
     }
-
-    return true;
   }
 
   void showProjectDetails(AppDetail appDetail) {
@@ -71,6 +68,10 @@ class UploaderManager {
         info.write(
           "Android Firebase App Id: ${distributionConfig.accountConfig.androidId}\n",
         );
+        info.write(
+          "Android Testers: "
+          "[${distributionConfig.formattedAndroidTesters}]\n",
+        );
       }
       if (platform.availableOnIos) {
         info.write(
@@ -81,10 +82,14 @@ class UploaderManager {
           "[${distributionConfig.androidBuildType.value}]\n",
         );
         info.write(
-          "Release Notes: "
-          "${distributionConfig.showReleaseNotes}",
+          "IOS Testers: "
+          "[${distributionConfig.formattedIosTesters}]\n",
         );
       }
+      info.write(
+        "Release Notes: "
+        "\n${distributionConfig.formattedReleaseNotes}\n",
+      );
     }
 
     Printer.info("$info");

@@ -33,7 +33,12 @@ class AndroidUploadService {
       if (!isSuccess) return false;
     }
     if (uploadType.availableOnStore) {
-      return await uploadToPlayConsole(accountConfig: androidAccountConfig!);
+      isSuccess =
+          await uploadToPlayConsole(accountConfig: androidAccountConfig!);
+    }
+    if (isSuccess) {
+      Printer.success("UPLOAD PROCESS COMPLETED FOR ANDROID", bold: true);
+      return true;
     }
     return false;
   }
@@ -84,7 +89,7 @@ class AndroidUploadService {
       isSuccess = await processService.uploadApkToAppDistribution(
         firebaseAppId: firebaseAppId,
         testers: appDistributionConfig.androidTesters,
-        releaseNotes: appDistributionConfig.showReleaseNotes,
+        releaseNotes: appDistributionConfig.formattedReleaseNotes,
       );
       if (!isSuccess) {
         return Printer.error(
@@ -100,7 +105,7 @@ class AndroidUploadService {
       bool isSuccess = await processService.uploadAbbToAppDistribution(
         firebaseAppId: firebaseAppId,
         testers: appDistributionConfig.androidTesters,
-        releaseNotes: appDistributionConfig.showReleaseNotes,
+        releaseNotes: appDistributionConfig.formattedReleaseNotes,
       );
       if (!isSuccess) {
         return Printer.error(

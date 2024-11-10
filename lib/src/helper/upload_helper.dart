@@ -7,11 +7,13 @@ import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/android_helper.dart';
 import 'package:uploader/src/helper/app_distribution_helper.dart';
+import 'package:uploader/src/helper/file_helper.dart';
 import 'package:uploader/src/helper/ios_helper.dart';
 import 'package:uploader/src/model/pubspec_parameters.dart';
 import 'package:uploader/src/util/printer.dart';
 
 class UploadHelper {
+  final _fileHelper = FileHelper();
   bool checkPubspecParameters(PubspecParameters pubspecParameters) {
     final platform = pubspecParameters.platform;
     final uploadType = pubspecParameters.uploadType;
@@ -120,11 +122,11 @@ class UploadHelper {
       }
 
       List<String>? releaseNotes;
-
       if (pubspecParameters.appDistributionReleaseNotesPath != null) {
-        final releaseNotes = await appDistributionHelper.getReleaseNotes(
+        releaseNotes = await _fileHelper.readFileLines(
           pubspecParameters.appDistributionReleaseNotesPath!,
         );
+
         if (releaseNotes == null) {
           Printer.error(
             "process cannot continue because release notes could not be obtained",
@@ -133,11 +135,41 @@ class UploadHelper {
         }
       }
 
+      List<String>? iosTesters;
+      if (platform.availableOnIos &&
+          pubspecParameters.appDistributionIosTestersPath != null) {
+        iosTesters = await _fileHelper.readFileLines(
+          pubspecParameters.appDistributionIosTestersPath!,
+        );
+        if (iosTesters == null) {
+          Printer.error(
+            "process cannot continue because ios testers could not be obtained",
+          );
+          return null;
+        }
+      }
+
+      List<String>? androidTesters;
+      if (platform.availableOnAndroid &&
+          pubspecParameters.appDistributionAndroidTestersPath != null) {
+        androidTesters = await _fileHelper.readFileLines(
+          pubspecParameters.appDistributionAndroidTestersPath!,
+        );
+        if (androidTesters == null) {
+          Printer.error(
+            "process cannot continue because android testers could not be obtained",
+          );
+          return null;
+        }
+      }
+
+      print("$releaseNotes 222");
+
       appDistributionConfig = AppDistributionConfig(
         accountConfig: appDistributionAccountConfig,
         androidBuildType: pubspecParameters.appDistributionAndroidBuildType,
-        androidTesters: pubspecParameters.appDistributionAndroidTesters,
-        iosTesters: pubspecParameters.appDistributionIosTesters,
+        androidTesters: androidTesters,
+        iosTesters: iosTesters,
         releaseNotes: releaseNotes,
       );
     }
@@ -147,6 +179,7 @@ class UploadHelper {
       androidConfig: androidConfig,
       iosConfig: iosConfig,
       appDistributionConfig: appDistributionConfig,
+      extraBuildParameters: pubspecParameters.extraBuildParameters,
     );
   }
 }

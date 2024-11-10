@@ -38,6 +38,8 @@ class IosHelper {
 
       final lineList = await _fileHelper.readFileLines(plistPath);
 
+      if (lineList == null) return null;
+
       final index =
           lineList.indexWhere((element) => element.contains(cFBundleNameKey));
 
