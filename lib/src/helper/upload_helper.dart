@@ -179,6 +179,7 @@ class UploadHelper {
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
       useParallelUpload: pubspecParameters.useParallelUpload,
+      enableLogFileCreation: pubspecParameters.enableLogFileCreation,
     );
   }
 }

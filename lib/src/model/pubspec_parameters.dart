@@ -24,6 +24,7 @@ class PubspecParameters {
   //other
   final List<String>? extraBuildParameters;
   final bool useParallelUpload;
+  final bool enableLogFileCreation;
 
   bool get checkIosParameters => checkString(iosConfigPath);
 
@@ -44,6 +45,7 @@ class PubspecParameters {
     required this.appDistributionReleaseNotesPath,
     required this.extraBuildParameters,
     required this.useParallelUpload,
+    required this.enableLogFileCreation,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -92,6 +94,9 @@ class PubspecParameters {
           _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
       useParallelUpload:
           uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
+      enableLogFileCreation: uploaderMap == null
+          ? false
+          : uploaderMap['enableLogFileCreation'] ?? false,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ansicolor/ansicolor.dart';
+import 'package:uploader/src/util/logger.dart';
 
 enum LogType {
   info(text: "INFO"),
@@ -23,8 +24,8 @@ class Printer {
       ..reset()
       ..blue(bold: bold);
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
   }
 
   static void infoIOS(String text, {bool bold = false}) {
@@ -34,8 +35,8 @@ class Printer {
       ..reset()
       ..cyan(bold: bold);
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
   }
 
   static void infoAndroid(String text, {bool bold = false}) {
@@ -45,8 +46,8 @@ class Printer {
       ..reset()
       ..magenta(bold: bold);
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
   }
 
   static bool error(String text) {
@@ -55,8 +56,8 @@ class Printer {
       ..reset()
       ..red();
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
     return false;
   }
 
@@ -67,8 +68,8 @@ class Printer {
       ..reset()
       ..yellow();
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
   }
 
   static bool success(String text, {bool bold = false}) {
@@ -77,8 +78,8 @@ class Printer {
       ..reset()
       ..green(bold: bold);
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
 
     return true;
   }
@@ -88,8 +89,8 @@ class Printer {
       ..reset()
       ..yellow();
 
-    stdout.write(_pen(text));
-    stdout.write("\n");
+    _write(text);
+    _write("\n");
   }
 
   static void header(LogType logType) {
@@ -97,8 +98,13 @@ class Printer {
       ..reset()
       ..black(bold: true);
 
-    stdout.write("\n");
-    stdout.write(_pen("[${logType.text}]"));
-    stdout.write("\n");
+    _write("\n");
+    _write("[${logType.text}]");
+    _write("\n");
+  }
+
+  static void _write(String text) {
+    stdout.write(_pen(text));
+    Logger.instance.log(text);
   }
 }
