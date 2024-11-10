@@ -33,16 +33,16 @@ enum UploadType {
   final String value;
 
   const UploadType({required this.value});
-
+  bool get availableOnStore => this != appDistribution;
   bool get availableOnAppDistribution => this != store;
 }
 
-enum Track {
+enum AndroidTrack {
   internal(value: "internal"),
   alpha(value: "alpha"),
   beta(value: "beta");
 
   final String value;
 
-  const Track({required this.value});
+  const AndroidTrack({required this.value});
 }

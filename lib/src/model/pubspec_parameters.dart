@@ -12,15 +12,19 @@ class PubspecParameters {
   //android
   final String? androidConfigPath;
   final String? androidPackageName;
-  final Track androidTrack;
+  final AndroidTrack androidTrack;
   final String? androidSkslPath;
 
   //appDistribution
   final AndroidBuildType appDistributionAndroidBuildType;
-  final List<String>? appDistributionAndroidTesters;
-  final List<String>? appDistributionIosTesters;
-  final List<String>? appDistributionReleaseNotes;
+  final String? appDistributionAndroidTestersPath;
+  final String? appDistributionIosTestersPath;
+  final String? appDistributionReleaseNotesPath;
+
+  //other
   final List<String>? extraBuildParameters;
+  final bool useParallelUpload;
+  final bool enableLogFileCreation;
 
   bool get checkIosParameters => checkString(iosConfigPath);
 
@@ -32,14 +36,16 @@ class PubspecParameters {
     required this.platform,
     required this.iosConfigPath,
     required this.androidConfigPath,
-    this.androidTrack = Track.internal,
+    this.androidTrack = AndroidTrack.internal,
     required this.androidPackageName,
     required this.androidSkslPath,
     this.appDistributionAndroidBuildType = AndroidBuildType.abb,
-    required this.appDistributionAndroidTesters,
-    required this.appDistributionIosTesters,
-    required this.appDistributionReleaseNotes,
+    required this.appDistributionAndroidTestersPath,
+    required this.appDistributionIosTestersPath,
+    required this.appDistributionReleaseNotesPath,
     required this.extraBuildParameters,
+    required this.useParallelUpload,
+    required this.enableLogFileCreation,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -63,10 +69,10 @@ class PubspecParameters {
       androidPackageName:
           androidConfigMap == null ? null : androidConfigMap["packageName"],
       androidTrack: androidConfigMap == null
-          ? Track.internal
-          : Track.values.firstWhereOrNull(
+          ? AndroidTrack.internal
+          : AndroidTrack.values.firstWhereOrNull(
                   (track) => track.value == androidConfigMap["track"]) ??
-              Track.internal,
+              AndroidTrack.internal,
       androidSkslPath:
           androidConfigMap == null ? null : androidConfigMap["skslPath"],
       appDistributionAndroidBuildType: appDistributionConfig == null
@@ -75,26 +81,22 @@ class PubspecParameters {
                   buildType.value ==
                   appDistributionConfig["androidBuildType"]) ??
               AndroidBuildType.abb,
-      appDistributionIosTesters: appDistributionConfig == null
+      appDistributionIosTestersPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['iosTesters'],
-            ),
-      appDistributionAndroidTesters: appDistributionConfig == null
+          : appDistributionConfig['iosTestersPath'],
+      appDistributionAndroidTestersPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['androidTesters'],
-            ),
-      appDistributionReleaseNotes: appDistributionConfig == null
+          : appDistributionConfig['androidTestersPath'],
+      appDistributionReleaseNotesPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['releaseNotes'],
-            ),
-      extraBuildParameters: appDistributionConfig == null
-          ? null
-          : _parseIterableToList<String>(
-              uploaderMap['extraBuildParameters'],
-            ),
+          : appDistributionConfig['releaseNotesPath'],
+      extraBuildParameters:
+          _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
+      useParallelUpload:
+          uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
+      enableLogFileCreation: uploaderMap == null
+          ? false
+          : uploaderMap['enableLogFileCreation'] ?? false,
     );
   }
 

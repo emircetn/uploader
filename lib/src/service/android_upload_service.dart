@@ -16,14 +16,18 @@ class AndroidUploadService {
   final processService = ProcessService();
 
   Future<bool> upload(String? firebaseAppId) async {
-    Printer.info("UPLOAD PROCESS STARTED FOR ANDROID", bold: true);
+    Printer.infoAndroid(
+      "[android] UPLOAD PROCESS STARTED FOR ANDROID",
+      bold: true,
+    );
     final androidAccountConfig = config.androidConfig!.accountConfig;
+    final uploadType = config.uploadType;
 
     bool isSuccess = await buildAbb();
     if (!isSuccess) return false;
 
     final availableOnAppDistribution =
-        config.uploadType.availableOnAppDistribution && firebaseAppId != null;
+        uploadType.availableOnAppDistribution && firebaseAppId != null;
 
     if (availableOnAppDistribution) {
       bool isSuccess = await uploadToAppDistribution(
@@ -31,12 +35,22 @@ class AndroidUploadService {
       );
       if (!isSuccess) return false;
     }
-
-    return await uploadToPlayConsole(accountConfig: androidAccountConfig);
+    if (uploadType.availableOnStore) {
+      isSuccess =
+          await uploadToPlayConsole(accountConfig: androidAccountConfig!);
+    }
+    if (isSuccess) {
+      Printer.success(
+        "[android] UPLOAD PROCESS COMPLETED FOR ANDROID",
+        bold: true,
+      );
+      return true;
+    }
+    return false;
   }
 
   Future<bool> buildAbb() async {
-    Printer.info("abb building...");
+    Printer.infoAndroid("[android] abb building...");
 
     bool isSuccess = await processService.buildAbb(
       skslPath: config.androidConfig!.skslPath,
@@ -45,13 +59,13 @@ class AndroidUploadService {
 
     if (!isSuccess) {
       return Printer.error(
-        "process cannot continue because "
+        "[android] process cannot continue because "
         "ABB file could not be created",
       );
     }
 
     return Printer.success(
-      "ABB file created: "
+      "[android] ABB file created: "
       "${PathConstants.abbPath}",
     );
   }
@@ -60,59 +74,59 @@ class AndroidUploadService {
     final appDistributionConfig = config.appDistributionConfig!;
 
     if (appDistributionConfig.androidBuildType.isApk) {
-      Printer.info("apk building...");
+      Printer.infoAndroid("[android] apk building...");
 
       bool isSuccess = await processService.buildApk(
         extraBuildParameters: config.extraBuildParameters,
       );
       if (!isSuccess) {
         return Printer.error(
-          "process cannot continue because APK file could not be created",
+          "[android] process cannot continue because APK file could not be created",
         );
       }
 
       Printer.success(
-        "APK file created: "
+        "[android] APK file created: "
         "${PathConstants.apkPath}",
       );
 
-      Printer.info("apk uploading to app distribution...");
+      Printer.infoAndroid("[android] apk uploading to app distribution...");
 
       isSuccess = await processService.uploadApkToAppDistribution(
         firebaseAppId: firebaseAppId,
         testers: appDistributionConfig.androidTesters,
-        releaseNotes: appDistributionConfig.showReleaseNotes,
+        releaseNotes: appDistributionConfig.formattedReleaseNotes,
       );
       if (!isSuccess) {
         return Printer.error(
-          "process cannot continue because "
+          "[android] process cannot continue because "
           "APK file could not be uploaded to distribution",
         );
       }
 
-      return Printer.success("APK file uploaded to app distribution");
+      return Printer.success("[android] APK file uploaded to app distribution");
     } else {
-      Printer.info("abb uploading to app distribution...");
+      Printer.infoAndroid("[android] abb uploading to app distribution...");
 
       bool isSuccess = await processService.uploadAbbToAppDistribution(
         firebaseAppId: firebaseAppId,
         testers: appDistributionConfig.androidTesters,
-        releaseNotes: appDistributionConfig.showReleaseNotes,
+        releaseNotes: appDistributionConfig.formattedReleaseNotes,
       );
       if (!isSuccess) {
         return Printer.error(
-          "process cannot continue because "
+          "[android] process cannot continue because "
           "ABB file could not be uploaded to app distribution",
         );
       }
-      return Printer.success("ABB file uploaded to app distribution");
+      return Printer.success("[android] ABB file uploaded to app distribution");
     }
   }
 
   Future<bool> uploadToPlayConsole({
     required AndroidAccountConfig accountConfig,
   }) async {
-    Printer.info("abb uploading to play console...");
+    Printer.infoAndroid("[android] abb uploading to play console...");
 
     final androidConfig = config.androidConfig!;
 
@@ -161,7 +175,7 @@ class AndroidUploadService {
     } catch (e) {
       Printer.error("$e");
       return Printer.error(
-        "process cannot continue because "
+        "[android] process cannot continue because "
         "ABB file could not be uploaded to play console",
       );
     }

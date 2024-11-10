@@ -3,14 +3,14 @@ import 'package:uploader/src/enum/enums.dart';
 
 final class AndroidConfig {
   final String packageName;
-  final Track track;
+  final AndroidTrack track;
   final String? skslPath;
-  final AndroidAccountConfig accountConfig;
+  final AndroidAccountConfig? accountConfig;
 
   AndroidConfig({
     required this.packageName,
-    this.track = Track.internal,
+    this.track = AndroidTrack.internal,
     required this.skslPath,
-    required this.accountConfig,
+    this.accountConfig,
   });
 }

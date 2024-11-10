@@ -1,15 +1,19 @@
+import 'package:uploader/src/config/android/android_account_config.dart';
 import 'package:uploader/src/config/android/android_config.dart';
 import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
+import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/ios/ios_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/android_helper.dart';
 import 'package:uploader/src/helper/app_distribution_helper.dart';
+import 'package:uploader/src/helper/file_helper.dart';
 import 'package:uploader/src/helper/ios_helper.dart';
 import 'package:uploader/src/model/pubspec_parameters.dart';
 import 'package:uploader/src/util/printer.dart';
 
 class UploadHelper {
+  final _fileHelper = FileHelper();
   bool checkPubspecParameters(PubspecParameters pubspecParameters) {
     final platform = pubspecParameters.platform;
     final uploadType = pubspecParameters.uploadType;
@@ -52,17 +56,20 @@ class UploadHelper {
     if (platform.availableOnAndroid) {
       final androidHelper = AndroidHelper();
 
-      final androidConfigPath = pubspecParameters.androidConfigPath!;
+      AndroidAccountConfig? androidAccountConfig;
 
-      final androidAccountConfig = await androidHelper.getAccountConfig(
-        androidConfigPath,
-      );
-
-      if (androidAccountConfig == null) {
-        Printer.error(
-          "process cannot continue because android account config information could not be obtained",
+      if (uploadType.availableOnStore) {
+        final androidConfigPath = pubspecParameters.androidConfigPath!;
+        androidAccountConfig = await androidHelper.getAccountConfig(
+          androidConfigPath,
         );
-        return null;
+
+        if (androidAccountConfig == null) {
+          Printer.error(
+            "process cannot continue because android account config information could not be obtained",
+          );
+          return null;
+        }
       }
 
       androidConfig = AndroidConfig(
@@ -83,17 +90,20 @@ class UploadHelper {
         return null;
       }
 
-      final iosAccountConfig = await iosHelper.getAccountConfig(
-        iosConfigPath,
-      );
+      IosAccountConfig? iosAccountConfig;
 
-      if (iosAccountConfig == null) {
-        Printer.error(
-          "process cannot continue because ios account config information could not be obtained",
+      if (uploadType.availableOnStore) {
+        iosAccountConfig = await iosHelper.getAccountConfig(
+          iosConfigPath,
         );
-        return null;
-      }
 
+        if (iosAccountConfig == null) {
+          Printer.error(
+            "process cannot continue because ios account config information could not be obtained",
+          );
+          return null;
+        }
+      }
       iosConfig = IosConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
     }
 
@@ -111,12 +121,54 @@ class UploadHelper {
         return null;
       }
 
+      List<String>? releaseNotes;
+      if (pubspecParameters.appDistributionReleaseNotesPath != null) {
+        releaseNotes = await _fileHelper.readFileLines(
+          pubspecParameters.appDistributionReleaseNotesPath!,
+        );
+
+        if (releaseNotes == null) {
+          Printer.error(
+            "process cannot continue because release notes could not be obtained",
+          );
+          return null;
+        }
+      }
+
+      List<String>? iosTesters;
+      if (platform.availableOnIos &&
+          pubspecParameters.appDistributionIosTestersPath != null) {
+        iosTesters = await _fileHelper.readFileLines(
+          pubspecParameters.appDistributionIosTestersPath!,
+        );
+        if (iosTesters == null) {
+          Printer.error(
+            "process cannot continue because ios testers could not be obtained",
+          );
+          return null;
+        }
+      }
+
+      List<String>? androidTesters;
+      if (platform.availableOnAndroid &&
+          pubspecParameters.appDistributionAndroidTestersPath != null) {
+        androidTesters = await _fileHelper.readFileLines(
+          pubspecParameters.appDistributionAndroidTestersPath!,
+        );
+        if (androidTesters == null) {
+          Printer.error(
+            "process cannot continue because android testers could not be obtained",
+          );
+          return null;
+        }
+      }
+
       appDistributionConfig = AppDistributionConfig(
         accountConfig: appDistributionAccountConfig,
         androidBuildType: pubspecParameters.appDistributionAndroidBuildType,
-        androidTesters: pubspecParameters.appDistributionAndroidTesters,
-        iosTesters: pubspecParameters.appDistributionIosTesters,
-        releaseNotes: pubspecParameters.appDistributionReleaseNotes,
+        androidTesters: androidTesters,
+        iosTesters: iosTesters,
+        releaseNotes: releaseNotes,
       );
     }
     return UploaderConfig(
@@ -125,6 +177,9 @@ class UploadHelper {
       androidConfig: androidConfig,
       iosConfig: iosConfig,
       appDistributionConfig: appDistributionConfig,
+      extraBuildParameters: pubspecParameters.extraBuildParameters,
+      useParallelUpload: pubspecParameters.useParallelUpload,
+      enableLogFileCreation: pubspecParameters.enableLogFileCreation,
     );
   }
 }
