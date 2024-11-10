@@ -15,6 +15,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'flutter',
       arguments: [
         'build',
@@ -33,6 +34,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'flutter',
       arguments: [
         'build',
@@ -52,6 +54,7 @@ class ProcessService {
     List<String>? extraBuildParameters,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'flutter',
       arguments: [
         'build',
@@ -70,6 +73,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -94,6 +98,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -118,6 +123,7 @@ class ProcessService {
     required List<String>? testers,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.android,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
@@ -142,6 +148,7 @@ class ProcessService {
     required String ipaName,
   }) async {
     return await _runProcess(
+      platform: AppPlatform.ios,
       executable: 'xcrun',
       arguments: [
         'altool',
@@ -159,6 +166,7 @@ class ProcessService {
   }
 
   Future<bool> _runProcess({
+    required AppPlatform platform,
     required String executable,
     required List<String> arguments,
     ProcessStartMode mode = ProcessStartMode.normal,
@@ -175,13 +183,13 @@ class ProcessService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        print(line);
+        print("[${platform.value}] $line");
       });
       process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        print(line);
+        print("[${platform.value}] $line");
       });
 
       final exitCode = await process.exitCode;

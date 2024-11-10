@@ -30,21 +30,27 @@ class UploaderManager {
       String? yOrN = stdin.readLineSync(encoding: utf8);
       if (yOrN != "y" && yOrN != "Y") return false;
 
-      final futures = await Future.wait([
+      final process = [
         if (config.platform.availableOnAndroid)
-          AndroidUploadService(config).upload(
-            config.appDistributionConfig?.accountConfig.androidId,
-          ),
+          () => AndroidUploadService(config).upload(
+                config.appDistributionConfig?.accountConfig.androidId,
+              ),
         if (config.platform.availableOnIos)
-          IosUploadService(config).upload(
-            config.appDistributionConfig?.accountConfig.iosId,
-          ),
-      ]);
-
-      if (futures.contains(false)) {
-        return false;
+          () => IosUploadService(config).upload(
+                config.appDistributionConfig?.accountConfig.iosId,
+              ),
+      ];
+      if (config.useParallelUpload) {
+        final futures = await Future.wait(process.map((p) => p()));
+        if (futures.contains(false)) {
+          return false;
+        }
+      } else {
+        for (final p in process) {
+          final isSuccess = await p();
+          if (!isSuccess) return false;
+        }
       }
-
       return true;
     }
   }

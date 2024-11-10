@@ -13,6 +13,7 @@ class UploaderConfig {
   final AndroidConfig? androidConfig;
   final AppDistributionConfig? appDistributionConfig;
   final List<String>? extraBuildParameters;
+  final bool useParallelUpload;
 
   UploaderConfig({
     required this.uploadType,
@@ -21,6 +22,7 @@ class UploaderConfig {
     this.androidConfig,
     this.appDistributionConfig,
     this.extraBuildParameters,
+    this.useParallelUpload = true,
   });
 
   factory UploaderConfig.test() {
@@ -56,6 +58,7 @@ class UploaderConfig {
           "test",
         ],
       ),
+      useParallelUpload: true,
     );
   }
 }

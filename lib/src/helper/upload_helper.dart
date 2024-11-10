@@ -163,8 +163,6 @@ class UploadHelper {
         }
       }
 
-      print("$releaseNotes 222");
-
       appDistributionConfig = AppDistributionConfig(
         accountConfig: appDistributionAccountConfig,
         androidBuildType: pubspecParameters.appDistributionAndroidBuildType,
@@ -180,6 +178,7 @@ class UploadHelper {
       iosConfig: iosConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
+      useParallelUpload: pubspecParameters.useParallelUpload,
     );
   }
 }

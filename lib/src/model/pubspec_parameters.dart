@@ -23,6 +23,7 @@ class PubspecParameters {
 
   //other
   final List<String>? extraBuildParameters;
+  final bool useParallelUpload;
 
   bool get checkIosParameters => checkString(iosConfigPath);
 
@@ -42,6 +43,7 @@ class PubspecParameters {
     required this.appDistributionIosTestersPath,
     required this.appDistributionReleaseNotesPath,
     required this.extraBuildParameters,
+    required this.useParallelUpload,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -88,6 +90,8 @@ class PubspecParameters {
           : appDistributionConfig['releaseNotesPath'],
       extraBuildParameters:
           _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
+      useParallelUpload:
+          uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
     );
   }
 

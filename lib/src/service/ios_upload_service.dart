@@ -13,7 +13,7 @@ class IosUploadService {
   final processService = ProcessService();
 
   Future<bool> upload(String? firebaseAppId) async {
-    Printer.info("UPLOAD PROCESS STARTED FOR IOS", bold: true);
+    Printer.infoIOS("[ios] UPLOAD PROCESS STARTED FOR IOS", bold: true);
     final iosAccountConfig = config.iosConfig!.accountConfig;
     final ipaName = config.iosConfig!.ipaName;
     final uploadType = config.uploadType;
@@ -36,7 +36,7 @@ class IosUploadService {
       );
     }
     if (isSuccess == true) {
-      Printer.success("UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
+      Printer.success("[ios] UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
       return true;
     } else {
       return false;
@@ -49,7 +49,7 @@ class IosUploadService {
   }) async {
     final appDistributionConfig = config.appDistributionConfig!;
 
-    Printer.info("IPA(adhoc) building...");
+    Printer.infoIOS("[ios] IPA(adhoc) building...");
 
     bool isSuccess = await processService.buildIpa(
       type: IPAType.adHoc,
@@ -57,17 +57,17 @@ class IosUploadService {
     );
     if (!isSuccess) {
       return Printer.error(
-        "process cannot continue because "
+        "[ios] process cannot continue because "
         "IPA(adHoc) file could not be created",
       );
     }
 
     Printer.success(
-      "IPA(adHoc) file created: "
+      "[ios] IPA(adHoc) file created: "
       "${PathConstants.ipaPath(ipaName)}",
     );
 
-    Printer.info("IPA(adhoc) uploading to app distribution...");
+    Printer.infoIOS("[ios] IPA(adhoc) uploading to app distribution...");
 
     isSuccess = await processService.uploadIpaToAppDistribution(
       firebaseAppId: firebaseAppId,
@@ -77,18 +77,19 @@ class IosUploadService {
     );
     if (!isSuccess) {
       return Printer.error(
-        "process cannot continue because "
+        "[ios] process cannot continue because "
         "IPA(adHoc) file could not be uploaded",
       );
     }
-    return Printer.success("IPA(adHoc) file uploaded to app distribution");
+    return Printer.success(
+        "[ios] IPA(adHoc) file uploaded to app distribution");
   }
 
   Future<bool> uploadToTestFlight({
     required String ipaName,
     required IosAccountConfig accountConfig,
   }) async {
-    Printer.info("IPA(appStore) building...");
+    Printer.infoIOS("[ios] IPA(appStore) building...");
 
     bool isSuccess = await processService.buildIpa(
       type: IPAType.appStore,
@@ -96,16 +97,16 @@ class IosUploadService {
     );
     if (!isSuccess) {
       return Printer.error(
-        "process cannot continue because "
+        "[ios] process cannot continue because "
         "IPA(appStore) file could not be created",
       );
     }
     Printer.success(
-      "IPA(appStore) file created: "
+      "[ios] IPA(appStore) file created: "
       "${PathConstants.ipaPath(ipaName)}",
     );
 
-    Printer.info("IPA(appStore) uploading to testflight...");
+    Printer.infoIOS("[ios] IPA(appStore) uploading to testflight...");
 
     isSuccess = await processService.uploadToTestFlight(
       iosConfig: config.iosConfig!,
@@ -114,10 +115,10 @@ class IosUploadService {
     );
     if (!isSuccess) {
       return Printer.error(
-        "process cannot continue because "
+        "[ios] process cannot continue because "
         "IPA(appStore) file could not be uploaded to testflight",
       );
     }
-    return Printer.success("IPA(appStore) file uploaded to testflight");
+    return Printer.success("[ios] IPA(appStore) file uploaded to testflight");
   }
 }
