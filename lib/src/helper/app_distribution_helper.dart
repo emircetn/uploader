@@ -1,6 +1,7 @@
 import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/file_helper.dart';
+import 'package:uploader/src/util/printer.dart';
 
 class AppDistributionHelper {
   final _fileHelper = FileHelper();
@@ -48,6 +49,22 @@ class AppDistributionHelper {
       }
       return AppDistributionAccountConfig(
           iosId: iosAppId, androidId: androidAppId);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<List<String>?> getReleaseNotes(String releaseNotesPath) async {
+    try {
+      final releaseNotes = await _fileHelper.readFileLines(releaseNotesPath);
+
+      if (releaseNotes.isEmpty) {
+        Printer.error(
+          "release notes file could not be read, please check the file location",
+        );
+        return null;
+      }
+      return releaseNotes;
     } catch (e) {
       return null;
     }

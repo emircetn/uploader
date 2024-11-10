@@ -16,9 +16,10 @@ class IosUploadService {
     Printer.info("UPLOAD PROCESS STARTED FOR IOS", bold: true);
     final iosAccountConfig = config.iosConfig!.accountConfig;
     final ipaName = config.iosConfig!.ipaName;
+    final uploadType = config.uploadType;
 
     final availableOnAppDistribution =
-        firebaseAppId != null && config.uploadType.availableOnAppDistribution;
+        firebaseAppId != null && uploadType.availableOnAppDistribution;
 
     if (availableOnAppDistribution) {
       bool isSuccess = await uploadToAppDistribution(
@@ -27,11 +28,13 @@ class IosUploadService {
       );
       if (!isSuccess) return false;
     }
-
-    return await uploadToTestFlight(
-      ipaName: ipaName,
-      accountConfig: iosAccountConfig,
-    );
+    if (uploadType.availableOnStore) {
+      return await uploadToTestFlight(
+        ipaName: ipaName,
+        accountConfig: iosAccountConfig!,
+      );
+    }
+    return false;
   }
 
   Future<bool> uploadToAppDistribution({

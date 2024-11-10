@@ -30,20 +30,21 @@ class UploaderManager {
       String? yOrN = stdin.readLineSync(encoding: utf8);
       if (yOrN != "y" && yOrN != "Y") return false;
 
-      if (config.platform.availableOnAndroid) {
-        final isSuccess = await AndroidUploadService(config).upload(
-          config.appDistributionConfig?.accountConfig.androidId,
-        );
-        if (isSuccess) {
-          Printer.success("UPLOAD PROCESS COMPLETED FOR ANDROID", bold: true);
-        }
-      }
       if (config.platform.availableOnIos) {
         final isSuccess = await IosUploadService(config).upload(
           config.appDistributionConfig?.accountConfig.iosId,
         );
         if (isSuccess) {
           Printer.success("UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
+        }
+      }
+
+      if (config.platform.availableOnAndroid) {
+        final isSuccess = await AndroidUploadService(config).upload(
+          config.appDistributionConfig?.accountConfig.androidId,
+        );
+        if (isSuccess) {
+          Printer.success("UPLOAD PROCESS COMPLETED FOR ANDROID", bold: true);
         }
       }
     }

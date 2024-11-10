@@ -18,12 +18,13 @@ class AndroidUploadService {
   Future<bool> upload(String? firebaseAppId) async {
     Printer.info("UPLOAD PROCESS STARTED FOR ANDROID", bold: true);
     final androidAccountConfig = config.androidConfig!.accountConfig;
+    final uploadType = config.uploadType;
 
     bool isSuccess = await buildAbb();
     if (!isSuccess) return false;
 
     final availableOnAppDistribution =
-        config.uploadType.availableOnAppDistribution && firebaseAppId != null;
+        uploadType.availableOnAppDistribution && firebaseAppId != null;
 
     if (availableOnAppDistribution) {
       bool isSuccess = await uploadToAppDistribution(
@@ -31,8 +32,10 @@ class AndroidUploadService {
       );
       if (!isSuccess) return false;
     }
-
-    return await uploadToPlayConsole(accountConfig: androidAccountConfig);
+    if (uploadType.availableOnStore) {
+      return await uploadToPlayConsole(accountConfig: androidAccountConfig!);
+    }
+    return false;
   }
 
   Future<bool> buildAbb() async {

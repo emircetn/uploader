@@ -37,7 +37,7 @@ class UploaderConfig {
       androidConfig: AndroidConfig(
         skslPath: "test",
         packageName: "test",
-        track: Track.internal,
+        track: AndroidTrack.internal,
         accountConfig: AndroidAccountConfig(
           clientEmail: "clientEmail",
           clientId: "clientId",

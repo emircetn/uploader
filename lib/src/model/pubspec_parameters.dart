@@ -12,14 +12,14 @@ class PubspecParameters {
   //android
   final String? androidConfigPath;
   final String? androidPackageName;
-  final Track androidTrack;
+  final AndroidTrack androidTrack;
   final String? androidSkslPath;
 
   //appDistribution
   final AndroidBuildType appDistributionAndroidBuildType;
   final List<String>? appDistributionAndroidTesters;
   final List<String>? appDistributionIosTesters;
-  final List<String>? appDistributionReleaseNotes;
+  final String? appDistributionReleaseNotesPath;
   final List<String>? extraBuildParameters;
 
   bool get checkIosParameters => checkString(iosConfigPath);
@@ -32,13 +32,13 @@ class PubspecParameters {
     required this.platform,
     required this.iosConfigPath,
     required this.androidConfigPath,
-    this.androidTrack = Track.internal,
+    this.androidTrack = AndroidTrack.internal,
     required this.androidPackageName,
     required this.androidSkslPath,
     this.appDistributionAndroidBuildType = AndroidBuildType.abb,
     required this.appDistributionAndroidTesters,
     required this.appDistributionIosTesters,
-    required this.appDistributionReleaseNotes,
+    required this.appDistributionReleaseNotesPath,
     required this.extraBuildParameters,
   });
 
@@ -63,10 +63,10 @@ class PubspecParameters {
       androidPackageName:
           androidConfigMap == null ? null : androidConfigMap["packageName"],
       androidTrack: androidConfigMap == null
-          ? Track.internal
-          : Track.values.firstWhereOrNull(
+          ? AndroidTrack.internal
+          : AndroidTrack.values.firstWhereOrNull(
                   (track) => track.value == androidConfigMap["track"]) ??
-              Track.internal,
+              AndroidTrack.internal,
       androidSkslPath:
           androidConfigMap == null ? null : androidConfigMap["skslPath"],
       appDistributionAndroidBuildType: appDistributionConfig == null
@@ -85,11 +85,9 @@ class PubspecParameters {
           : _parseIterableToList<String>(
               appDistributionConfig['androidTesters'],
             ),
-      appDistributionReleaseNotes: appDistributionConfig == null
+      appDistributionReleaseNotesPath: appDistributionConfig == null
           ? null
-          : _parseIterableToList<String>(
-              appDistributionConfig['releaseNotes'],
-            ),
+          : appDistributionConfig['releaseNotesPath'],
       extraBuildParameters: appDistributionConfig == null
           ? null
           : _parseIterableToList<String>(
