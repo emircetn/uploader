@@ -1,3 +1,9 @@
+## 0.1.1
+
+- **BREAKING CHANGE**: Replaced `androidConfig` and `iosConfig` with `playStoreConfig` and `testFlightConfig` for better platform-specific configuration clarity
+- Enhanced project details display for better readability
+- Added TestFlight and Play Store configuration improvements
+
 ## 0.1.0
 
 - Added log system support to enable logging functionality.
