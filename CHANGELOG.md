@@ -1,3 +1,7 @@
+## 0.1.2
+
+- Update readme
+
 ## 0.1.1
 
 - **BREAKING CHANGE**: Replaced `androidConfig` and `iosConfig` with `playStoreConfig` and `testFlightConfig` for better platform-specific configuration clarity
