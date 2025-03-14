@@ -35,8 +35,7 @@ class UploadHelper {
     if (platform.availableOnIos && !pubspecParameters.checkIosParameters) {
       return Printer.error("ios config is missing or incorrect");
     }
-    if (platform.availableOnAndroid &&
-        !pubspecParameters.checkAndroidParameters) {
+    if (platform.availableOnAndroid && !pubspecParameters.checkAndroidParameters) {
       return Printer.error("android config is missing or incorrect");
     }
 
@@ -110,11 +109,9 @@ class UploadHelper {
     if (uploadType.availableOnAppDistribution) {
       final appDistributionHelper = AppDistributionHelper();
 
-      final appDistributionAccountConfig =
-          await appDistributionHelper.getAccountConfig(platform);
+      final appDistributionAccountConfig = await appDistributionHelper.getAccountConfig(platform);
 
-      if (appDistributionAccountConfig == null ||
-          !appDistributionAccountConfig.checkParameters(platform)) {
+      if (appDistributionAccountConfig == null || !appDistributionAccountConfig.checkParameters(platform)) {
         Printer.error(
           "process cannot continue because app distribution config information could not be obtained",
         );
@@ -136,11 +133,8 @@ class UploadHelper {
       }
 
       List<String>? iosTesters;
-      if (platform.availableOnIos &&
-          pubspecParameters.appDistributionIosTestersPath != null) {
-        iosTesters = await _fileHelper.readFileLines(
-          pubspecParameters.appDistributionIosTestersPath!,
-        );
+      if (platform.availableOnIos && pubspecParameters.appDistributionIosTesters != null) {
+        iosTesters = await appDistributionHelper.getTesters(pubspecParameters.appDistributionIosTesters!);
         if (iosTesters == null) {
           Printer.error(
             "process cannot continue because ios testers could not be obtained",
@@ -150,11 +144,8 @@ class UploadHelper {
       }
 
       List<String>? androidTesters;
-      if (platform.availableOnAndroid &&
-          pubspecParameters.appDistributionAndroidTestersPath != null) {
-        androidTesters = await _fileHelper.readFileLines(
-          pubspecParameters.appDistributionAndroidTestersPath!,
-        );
+      if (platform.availableOnAndroid && pubspecParameters.appDistributionAndroidTesters != null) {
+        androidTesters = await appDistributionHelper.getTesters(pubspecParameters.appDistributionAndroidTesters!);
         if (androidTesters == null) {
           Printer.error(
             "process cannot continue because android testers could not be obtained",

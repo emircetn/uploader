@@ -1,9 +1,13 @@
 import 'package:uploader/src/config/app_distribution/app_distribution_account_config.dart';
 import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/helper/download_helper.dart';
 import 'package:uploader/src/helper/file_helper.dart';
+import 'package:uploader/src/model/data_source.dart';
 
 class AppDistributionHelper {
   final _fileHelper = FileHelper();
+  final _downloadHelper = DownloadHelper();
+
   Future<AppDistributionAccountConfig?> getAccountConfig(
     AppPlatform platform,
   ) async {
@@ -57,5 +61,15 @@ class AppDistributionHelper {
     } catch (e) {
       return null;
     }
+  }
+
+  Future<List<String>?> getTesters(DataSource source) async {
+    if (source.hasPath) {
+      return await _fileHelper.readFileLines(source.path!);
+    } else if (source.hasUrl) {
+      final file = await _downloadHelper.downloadFile(source.url!);
+      return file.split('\n');
+    }
+    return null;
   }
 }

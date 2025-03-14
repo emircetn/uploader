@@ -16,12 +16,9 @@ final class AppDistributionConfig {
     required this.releaseNotes,
   });
 
-  String get formattedReleaseNotes =>
-      releaseNotes == null ? "-" : releaseNotes!.join('\n');
+  String get formattedReleaseNotes => releaseNotes == null ? "-" : releaseNotes!.join('\n');
 
-  String get formattedIosTesters =>
-      iosTesters == null ? "" : iosTesters!.join(", ");
+  String get formattedIosTesters => iosTesters == null ? "" : iosTesters!.join(", ");
 
-  String get formattedAndroidTesters =>
-      androidTesters == null ? "" : androidTesters!.join(", ");
+  String get formattedAndroidTesters => androidTesters == null ? "" : androidTesters!.join(", ");
 }
