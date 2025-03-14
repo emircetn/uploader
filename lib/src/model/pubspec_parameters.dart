@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/data_source.dart';
 
@@ -50,64 +51,71 @@ class PubspecParameters {
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
-    final uploaderMap = map['uploader'];
-    final playStoreConfigMap = uploaderMap["playStoreConfig"];
-    final testFlightConfigMap = uploaderMap["testFlightConfig"];
+    final uploaderMap = map[PubspecKeys.uploader];
+    final playStoreConfigMap = uploaderMap[PubspecKeys.playStoreConfig];
+    final testFlightConfigMap = uploaderMap[PubspecKeys.testFlightConfig];
 
-    final appDistributionConfig = uploaderMap["appDistributionConfig"];
-    final androidTestersMap = appDistributionConfig?['androidTesters'];
-    final iosTestersMap = appDistributionConfig?['iosTesters'];
+    final appDistributionConfig =
+        uploaderMap[PubspecKeys.appDistributionConfig];
+    final androidTestersMap =
+        appDistributionConfig?[PubspecKeys.androidTesters];
+    final iosTestersMap = appDistributionConfig?[PubspecKeys.iosTesters];
 
     return PubspecParameters(
       uploadType: uploaderMap == null
           ? null
-          : UploadType.values.firstWhereOrNull(
-              (uploadType) => uploadType.value == uploaderMap["uploadType"]),
+          : UploadType.values.firstWhereOrNull((uploadType) =>
+              uploadType.value == uploaderMap[PubspecKeys.uploadType]),
       platform: uploaderMap == null
           ? null
-          : AppPlatform.values.firstWhereOrNull(
-              (platform) => platform.value == uploaderMap["platform"]),
-      testFlightConfigPath:
-          testFlightConfigMap == null ? null : testFlightConfigMap["path"],
-      playStoreConfigPath:
-          playStoreConfigMap == null ? null : playStoreConfigMap["path"],
-      androidPackageName:
-          playStoreConfigMap == null ? null : playStoreConfigMap["packageName"],
+          : AppPlatform.values.firstWhereOrNull((platform) =>
+              platform.value == uploaderMap[PubspecKeys.platform]),
+      testFlightConfigPath: testFlightConfigMap == null
+          ? null
+          : testFlightConfigMap[PubspecKeys.path],
+      playStoreConfigPath: playStoreConfigMap == null
+          ? null
+          : playStoreConfigMap[PubspecKeys.path],
+      androidPackageName: playStoreConfigMap == null
+          ? null
+          : playStoreConfigMap[PubspecKeys.packageName],
       androidTrack: playStoreConfigMap == null
           ? AndroidTrack.internal
-          : AndroidTrack.values.firstWhereOrNull(
-                  (track) => track.value == playStoreConfigMap["track"]) ??
+          : AndroidTrack.values.firstWhereOrNull((track) =>
+                  track.value == playStoreConfigMap[PubspecKeys.track]) ??
               AndroidTrack.internal,
-      androidSkslPath:
-          playStoreConfigMap == null ? null : playStoreConfigMap["skslPath"],
+      androidSkslPath: playStoreConfigMap == null
+          ? null
+          : playStoreConfigMap[PubspecKeys.skslPath],
       appDistributionAndroidBuildType: appDistributionConfig == null
           ? AndroidBuildType.abb
           : AndroidBuildType.values.firstWhereOrNull((buildType) =>
                   buildType.value ==
-                  appDistributionConfig["androidBuildType"]) ??
+                  appDistributionConfig[PubspecKeys.androidBuildType]) ??
               AndroidBuildType.abb,
       appDistributionIosTesters: iosTestersMap == null
           ? null
           : DataSource(
-              url: iosTestersMap?['url'],
-              path: iosTestersMap?['path'],
+              url: iosTestersMap?[PubspecKeys.url],
+              path: iosTestersMap?[PubspecKeys.path],
             ),
       appDistributionAndroidTesters: androidTestersMap == null
           ? null
           : DataSource(
-              url: androidTestersMap?['url'],
-              path: androidTestersMap?['path'],
+              url: androidTestersMap?[PubspecKeys.url],
+              path: androidTestersMap?[PubspecKeys.path],
             ),
       appDistributionReleaseNotesPath: appDistributionConfig == null
           ? null
-          : appDistributionConfig['releaseNotesPath'],
-      extraBuildParameters:
-          _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
-      useParallelUpload:
-          uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
+          : appDistributionConfig[PubspecKeys.releaseNotesPath],
+      extraBuildParameters: _parseIterableToList<String>(
+          uploaderMap[PubspecKeys.extraBuildParameters]),
+      useParallelUpload: uploaderMap == null
+          ? true
+          : uploaderMap[PubspecKeys.useParallelUpload] ?? true,
       enableLogFileCreation: uploaderMap == null
           ? false
-          : uploaderMap['enableLogFileCreation'] ?? false,
+          : uploaderMap[PubspecKeys.enableLogFileCreation] ?? false,
     );
   }
 

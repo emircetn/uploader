@@ -4,6 +4,7 @@ import 'package:uploader/src/config/app_distribution/app_distribution_config.dar
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/ios/test_flight_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
+import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/android_helper.dart';
 import 'package:uploader/src/helper/app_distribution_helper.dart';
@@ -37,7 +38,7 @@ class UploadHelper {
         !pubspecParameters.checkIosStoreParameters) {
       return Printer.error(
         "ios config is missing or incorrect\n"
-        "check testFlightConfig -> path parameter",
+        "check ${PubspecKeys.testFlightConfig} -> ${PubspecKeys.path} parameter",
       );
     }
     if (platform.availableOnAndroid &&
@@ -45,7 +46,7 @@ class UploadHelper {
         !pubspecParameters.checkAndroidStoreParameters) {
       return Printer.error(
         "android config is missing or incorrect\n"
-        "check playStoreConfig -> path parameter",
+        "check ${PubspecKeys.playStoreConfig} -> ${PubspecKeys.path} parameter",
       );
     }
 
