@@ -47,11 +47,13 @@ uploader:
     skslPath: null
   appDistributionConfig:
     androidBuildType: abb # abb, apk
-    androidTestersPath: android/testers.txt
-    iosTestersPath: ios/testers.txt
+    androidTesters: 
+       path: android/testers.txt
+    iosTesters: 
+       url: https://testers.txt
     releaseNotesPath: release_notes.txt
-    useParallelUpload: true # default:true
-    enableLogFileCreation: false # default: false.
+  useParallelUpload: true # default:true
+  enableLogFileCreation: false # default: false.
   extraBuildParameters: null
 ```
 

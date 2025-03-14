@@ -1,6 +1,6 @@
 name: uploader
 description: This package is used for creating AAB/APK and IPA files, and sending them to Play Console, TestFlight, and Firebase App Distribution
-version: 0.1.1
+version: 0.1.2
 homepage: https://github.com/emircetn/uploader
 repository: https://github.com/emircetn/uploader
 issue_tracker: https://github.com/emircetn/uploader/issues
