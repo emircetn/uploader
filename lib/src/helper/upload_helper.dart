@@ -1,8 +1,8 @@
 import 'package:uploader/src/config/android/android_account_config.dart';
-import 'package:uploader/src/config/android/android_config.dart';
+import 'package:uploader/src/config/android/play_store_config.dart';
 import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
 import 'package:uploader/src/config/ios/ios_account_config.dart';
-import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/config/ios/test_flight_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/android_helper.dart';
@@ -35,12 +35,18 @@ class UploadHelper {
     if (platform.availableOnIos &&
         uploadType.availableOnStore &&
         !pubspecParameters.checkIosStoreParameters) {
-      return Printer.error("ios config is missing or incorrect");
+      return Printer.error(
+        "ios config is missing or incorrect\n"
+        "check testFlightConfig -> path parameter",
+      );
     }
     if (platform.availableOnAndroid &&
         uploadType.availableOnStore &&
         !pubspecParameters.checkAndroidStoreParameters) {
-      return Printer.error("android config is missing or incorrect");
+      return Printer.error(
+        "android config is missing or incorrect\n"
+        "check playStoreConfig -> path parameter",
+      );
     }
 
     return true;
@@ -52,8 +58,8 @@ class UploadHelper {
     final platform = pubspecParameters.platform!;
     final uploadType = pubspecParameters.uploadType!;
 
-    AndroidConfig? androidConfig;
-    IosConfig? iosConfig;
+    PlayStoreConfig? playStoreConfigPath;
+    TestFlightConfig? testFlightConfig;
     AppDistributionConfig? appDistributionConfig;
 
     if (platform.availableOnAndroid && uploadType.availableOnStore) {
@@ -62,9 +68,9 @@ class UploadHelper {
       AndroidAccountConfig? androidAccountConfig;
 
       if (uploadType.availableOnStore) {
-        final androidConfigPath = pubspecParameters.androidConfigPath!;
+        final playStoreConfigPath = pubspecParameters.playStoreConfigPath!;
         androidAccountConfig = await androidHelper.getAccountConfig(
-          androidConfigPath,
+          playStoreConfigPath,
         );
 
         if (androidAccountConfig == null) {
@@ -75,7 +81,7 @@ class UploadHelper {
         }
       }
 
-      androidConfig = AndroidConfig(
+      playStoreConfigPath = PlayStoreConfig(
         packageName: pubspecParameters.androidPackageName!,
         track: pubspecParameters.androidTrack,
         skslPath: pubspecParameters.androidSkslPath,
@@ -85,7 +91,7 @@ class UploadHelper {
 
     if (platform.availableOnIos && uploadType.availableOnStore) {
       final iosHelper = IosHelper();
-      final iosConfigPath = pubspecParameters.iosConfigPath!;
+      final testFlightConfigPath = pubspecParameters.testFlightConfigPath!;
       String? ipaName = await iosHelper.getIpaName();
 
       if (ipaName == null) {
@@ -97,7 +103,7 @@ class UploadHelper {
 
       if (uploadType.availableOnStore) {
         iosAccountConfig = await iosHelper.getAccountConfig(
-          iosConfigPath,
+          testFlightConfigPath,
         );
 
         if (iosAccountConfig == null) {
@@ -107,7 +113,8 @@ class UploadHelper {
           return null;
         }
       }
-      iosConfig = IosConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
+      testFlightConfig =
+          TestFlightConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
     }
 
     if (uploadType.availableOnAppDistribution) {
@@ -174,8 +181,8 @@ class UploadHelper {
     return UploaderConfig(
       uploadType: uploadType,
       platform: platform,
-      androidConfig: androidConfig,
-      iosConfig: iosConfig,
+      playStoreConfig: playStoreConfigPath,
+      testFlightConfig: testFlightConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
       useParallelUpload: pubspecParameters.useParallelUpload,

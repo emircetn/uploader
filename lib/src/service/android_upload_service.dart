@@ -20,7 +20,7 @@ class AndroidUploadService {
       "[android] UPLOAD PROCESS STARTED FOR ANDROID",
       bold: true,
     );
-    final androidAccountConfig = config.androidConfig!.accountConfig;
+    final androidAccountConfig = config.playStoreConfig!.accountConfig;
     final uploadType = config.uploadType;
 
     bool isSuccess = await buildAbb();
@@ -54,7 +54,7 @@ class AndroidUploadService {
     Printer.infoAndroid("[android] abb building...");
 
     bool isSuccess = await processService.buildAbb(
-      skslPath: config.androidConfig!.skslPath,
+      skslPath: config.playStoreConfig!.skslPath,
       extraBuildParameters: config.extraBuildParameters,
     );
 
@@ -129,7 +129,7 @@ class AndroidUploadService {
   }) async {
     Printer.infoAndroid("[android] abb uploading to play console...");
 
-    final androidConfig = config.androidConfig!;
+    final playStoreConfig = config.playStoreConfig!;
 
     try {
       final credential = await _createCredentials(accountConfig);
@@ -137,7 +137,7 @@ class AndroidUploadService {
 
       final edits = await androidPublisher.edits.insert(
         AppEdit(),
-        androidConfig.packageName,
+        playStoreConfig.packageName,
       );
 
       final editId = edits.id;
@@ -147,7 +147,7 @@ class AndroidUploadService {
       final Stream<List<int>> stream = abbFile.openRead();
 
       final bundle = await androidPublisher.edits.bundles.upload(
-        androidConfig.packageName,
+        playStoreConfig.packageName,
         editId,
         uploadMedia: Media(
           stream,
@@ -159,7 +159,7 @@ class AndroidUploadService {
 
       await androidPublisher.edits.tracks.update(
         Track(
-          track: androidConfig.track.value,
+          track: playStoreConfig.track.value,
           releases: [
             TrackRelease(
               versionCodes: ["$versionCode"],
@@ -167,12 +167,15 @@ class AndroidUploadService {
             )
           ],
         ),
-        androidConfig.packageName,
+        playStoreConfig.packageName,
         editId,
-        androidConfig.track.value,
+        playStoreConfig.track.value,
       );
 
-      await androidPublisher.edits.commit(androidConfig.packageName, editId);
+      await androidPublisher.edits.commit(
+        playStoreConfig.packageName,
+        editId,
+      );
     } catch (e) {
       Printer.error("$e");
       return Printer.error(

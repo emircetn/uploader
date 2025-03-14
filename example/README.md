@@ -12,9 +12,9 @@ flutter pub add --dev uploader
 uploader:
   platform: all # ios, android, all
   uploadType: all # appDistribution, store, all
-  iosConfig:
+  testFlightConfig:
     path: ios/deploy_config.json # must include auth_key and issuer_id
-  androidConfig:
+  playStoreConfigPath:
     path: android/deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
     packageName: "com.package.name"

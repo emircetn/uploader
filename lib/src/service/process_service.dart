@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:uploader/src/config/ios/ios_account_config.dart';
-import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/config/ios/test_flight_config.dart';
 import 'package:uploader/src/constant/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/util/printer.dart';
@@ -143,7 +143,7 @@ class ProcessService {
   }
 
   Future<bool> uploadToTestFlight({
-    required IosConfig iosConfig,
+    required TestFlightConfig testFlightConfig,
     required IosAccountConfig accountConfig,
     required String ipaName,
   }) async {

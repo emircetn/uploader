@@ -8,10 +8,10 @@ class PubspecParameters {
   final AppPlatform? platform;
 
   //ios
-  final String? iosConfigPath;
+  final String? testFlightConfigPath;
 
   //android
-  final String? androidConfigPath;
+  final String? playStoreConfigPath;
   final String? androidPackageName;
   final AndroidTrack androidTrack;
   final String? androidSkslPath;
@@ -27,16 +27,16 @@ class PubspecParameters {
   final bool useParallelUpload;
   final bool enableLogFileCreation;
 
-  bool get checkIosStoreParameters => checkString(iosConfigPath);
+  bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
   bool get checkAndroidStoreParameters =>
-      checkString(androidConfigPath) && checkString(androidPackageName);
+      checkString(playStoreConfigPath) && checkString(androidPackageName);
 
   PubspecParameters({
     required this.uploadType,
     required this.platform,
-    required this.iosConfigPath,
-    required this.androidConfigPath,
+    required this.testFlightConfigPath,
+    required this.playStoreConfigPath,
     this.androidTrack = AndroidTrack.internal,
     required this.androidPackageName,
     required this.androidSkslPath,
@@ -51,8 +51,8 @@ class PubspecParameters {
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
     final uploaderMap = map['uploader'];
-    final androidConfigMap = uploaderMap["androidConfig"];
-    final iosConfigMap = uploaderMap["iosConfig"];
+    final playStoreConfigMap = uploaderMap["playStoreConfig"];
+    final testFlightConfigMap = uploaderMap["testFlightConfig"];
 
     final appDistributionConfig = uploaderMap["appDistributionConfig"];
     final androidTestersMap = appDistributionConfig?['androidTesters'];
@@ -67,18 +67,19 @@ class PubspecParameters {
           ? null
           : AppPlatform.values.firstWhereOrNull(
               (platform) => platform.value == uploaderMap["platform"]),
-      iosConfigPath: iosConfigMap == null ? null : iosConfigMap["path"],
-      androidConfigPath:
-          androidConfigMap == null ? null : androidConfigMap["path"],
+      testFlightConfigPath:
+          testFlightConfigMap == null ? null : testFlightConfigMap["path"],
+      playStoreConfigPath:
+          playStoreConfigMap == null ? null : playStoreConfigMap["path"],
       androidPackageName:
-          androidConfigMap == null ? null : androidConfigMap["packageName"],
-      androidTrack: androidConfigMap == null
+          playStoreConfigMap == null ? null : playStoreConfigMap["packageName"],
+      androidTrack: playStoreConfigMap == null
           ? AndroidTrack.internal
           : AndroidTrack.values.firstWhereOrNull(
-                  (track) => track.value == androidConfigMap["track"]) ??
+                  (track) => track.value == playStoreConfigMap["track"]) ??
               AndroidTrack.internal,
       androidSkslPath:
-          androidConfigMap == null ? null : androidConfigMap["skslPath"],
+          playStoreConfigMap == null ? null : playStoreConfigMap["skslPath"],
       appDistributionAndroidBuildType: appDistributionConfig == null
           ? AndroidBuildType.abb
           : AndroidBuildType.values.firstWhereOrNull((buildType) =>
