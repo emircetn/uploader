@@ -36,8 +36,9 @@ class AndroidUploadService {
       if (!isSuccess) return false;
     }
     if (uploadType.availableOnStore) {
-      isSuccess =
-          await uploadToPlayConsole(accountConfig: androidAccountConfig!);
+      isSuccess = await uploadToPlayConsole(
+        accountConfig: androidAccountConfig!,
+      );
     }
     if (isSuccess) {
       Printer.success(

@@ -27,9 +27,10 @@ class PubspecParameters {
   final bool useParallelUpload;
   final bool enableLogFileCreation;
 
-  bool get checkIosParameters => checkString(iosConfigPath);
+  bool get checkIosStoreParameters => checkString(iosConfigPath);
 
-  bool get checkAndroidParameters => checkString(androidConfigPath) && checkString(androidPackageName);
+  bool get checkAndroidStoreParameters =>
+      checkString(androidConfigPath) && checkString(androidPackageName);
 
   PubspecParameters({
     required this.uploadType,
@@ -52,44 +53,60 @@ class PubspecParameters {
     final uploaderMap = map['uploader'];
     final androidConfigMap = uploaderMap["androidConfig"];
     final iosConfigMap = uploaderMap["iosConfig"];
+
     final appDistributionConfig = uploaderMap["appDistributionConfig"];
+    final androidTestersMap = appDistributionConfig?['androidTesters'];
+    final iosTestersMap = appDistributionConfig?['iosTesters'];
 
     return PubspecParameters(
       uploadType: uploaderMap == null
           ? null
-          : UploadType.values.firstWhereOrNull((uploadType) => uploadType.value == uploaderMap["uploadType"]),
+          : UploadType.values.firstWhereOrNull(
+              (uploadType) => uploadType.value == uploaderMap["uploadType"]),
       platform: uploaderMap == null
           ? null
-          : AppPlatform.values.firstWhereOrNull((platform) => platform.value == uploaderMap["platform"]),
+          : AppPlatform.values.firstWhereOrNull(
+              (platform) => platform.value == uploaderMap["platform"]),
       iosConfigPath: iosConfigMap == null ? null : iosConfigMap["path"],
-      androidConfigPath: androidConfigMap == null ? null : androidConfigMap["path"],
-      androidPackageName: androidConfigMap == null ? null : androidConfigMap["packageName"],
+      androidConfigPath:
+          androidConfigMap == null ? null : androidConfigMap["path"],
+      androidPackageName:
+          androidConfigMap == null ? null : androidConfigMap["packageName"],
       androidTrack: androidConfigMap == null
           ? AndroidTrack.internal
-          : AndroidTrack.values.firstWhereOrNull((track) => track.value == androidConfigMap["track"]) ??
+          : AndroidTrack.values.firstWhereOrNull(
+                  (track) => track.value == androidConfigMap["track"]) ??
               AndroidTrack.internal,
-      androidSkslPath: androidConfigMap == null ? null : androidConfigMap["skslPath"],
+      androidSkslPath:
+          androidConfigMap == null ? null : androidConfigMap["skslPath"],
       appDistributionAndroidBuildType: appDistributionConfig == null
           ? AndroidBuildType.abb
-          : AndroidBuildType.values
-                  .firstWhereOrNull((buildType) => buildType.value == appDistributionConfig["androidBuildType"]) ??
+          : AndroidBuildType.values.firstWhereOrNull((buildType) =>
+                  buildType.value ==
+                  appDistributionConfig["androidBuildType"]) ??
               AndroidBuildType.abb,
-      appDistributionIosTesters: appDistributionConfig == null && appDistributionConfig['iosTesters'] != null
+      appDistributionIosTesters: iosTestersMap == null
           ? null
           : DataSource(
-              url: appDistributionConfig['iosTesters']?['url'],
-              path: appDistributionConfig['iosTesters']?['path'],
+              url: iosTestersMap?['url'],
+              path: iosTestersMap?['path'],
             ),
-      appDistributionAndroidTesters: appDistributionConfig == null && appDistributionConfig['androidTesters'] != null
+      appDistributionAndroidTesters: androidTestersMap == null
           ? null
           : DataSource(
-              url: appDistributionConfig['androidTesters']?['url'],
-              path: appDistributionConfig['androidTesters']?['path'],
+              url: androidTestersMap?['url'],
+              path: androidTestersMap?['path'],
             ),
-      appDistributionReleaseNotesPath: appDistributionConfig == null ? null : appDistributionConfig['releaseNotesPath'],
-      extraBuildParameters: _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
-      useParallelUpload: uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
-      enableLogFileCreation: uploaderMap == null ? false : uploaderMap['enableLogFileCreation'] ?? false,
+      appDistributionReleaseNotesPath: appDistributionConfig == null
+          ? null
+          : appDistributionConfig['releaseNotesPath'],
+      extraBuildParameters:
+          _parseIterableToList<String>(uploaderMap['extraBuildParameters']),
+      useParallelUpload:
+          uploaderMap == null ? true : uploaderMap['useParallelUpload'] ?? true,
+      enableLogFileCreation: uploaderMap == null
+          ? false
+          : uploaderMap['enableLogFileCreation'] ?? false,
     );
   }
 

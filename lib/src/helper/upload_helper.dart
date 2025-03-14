@@ -32,10 +32,14 @@ class UploadHelper {
       );
     }
 
-    if (platform.availableOnIos && !pubspecParameters.checkIosParameters) {
+    if (platform.availableOnIos &&
+        uploadType.availableOnStore &&
+        !pubspecParameters.checkIosStoreParameters) {
       return Printer.error("ios config is missing or incorrect");
     }
-    if (platform.availableOnAndroid && !pubspecParameters.checkAndroidParameters) {
+    if (platform.availableOnAndroid &&
+        uploadType.availableOnStore &&
+        !pubspecParameters.checkAndroidStoreParameters) {
       return Printer.error("android config is missing or incorrect");
     }
 
@@ -52,7 +56,7 @@ class UploadHelper {
     IosConfig? iosConfig;
     AppDistributionConfig? appDistributionConfig;
 
-    if (platform.availableOnAndroid) {
+    if (platform.availableOnAndroid && uploadType.availableOnStore) {
       final androidHelper = AndroidHelper();
 
       AndroidAccountConfig? androidAccountConfig;
@@ -79,7 +83,7 @@ class UploadHelper {
       );
     }
 
-    if (platform.availableOnIos) {
+    if (platform.availableOnIos && uploadType.availableOnStore) {
       final iosHelper = IosHelper();
       final iosConfigPath = pubspecParameters.iosConfigPath!;
       String? ipaName = await iosHelper.getIpaName();
@@ -109,9 +113,11 @@ class UploadHelper {
     if (uploadType.availableOnAppDistribution) {
       final appDistributionHelper = AppDistributionHelper();
 
-      final appDistributionAccountConfig = await appDistributionHelper.getAccountConfig(platform);
+      final appDistributionAccountConfig =
+          await appDistributionHelper.getAccountConfig(platform);
 
-      if (appDistributionAccountConfig == null || !appDistributionAccountConfig.checkParameters(platform)) {
+      if (appDistributionAccountConfig == null ||
+          !appDistributionAccountConfig.checkParameters(platform)) {
         Printer.error(
           "process cannot continue because app distribution config information could not be obtained",
         );
@@ -131,10 +137,11 @@ class UploadHelper {
           return null;
         }
       }
-
       List<String>? iosTesters;
-      if (platform.availableOnIos && pubspecParameters.appDistributionIosTesters != null) {
-        iosTesters = await appDistributionHelper.getTesters(pubspecParameters.appDistributionIosTesters!);
+      if (platform.availableOnIos &&
+          pubspecParameters.appDistributionIosTesters != null) {
+        iosTesters = await appDistributionHelper
+            .getTesters(pubspecParameters.appDistributionIosTesters!);
         if (iosTesters == null) {
           Printer.error(
             "process cannot continue because ios testers could not be obtained",
@@ -144,8 +151,10 @@ class UploadHelper {
       }
 
       List<String>? androidTesters;
-      if (platform.availableOnAndroid && pubspecParameters.appDistributionAndroidTesters != null) {
-        androidTesters = await appDistributionHelper.getTesters(pubspecParameters.appDistributionAndroidTesters!);
+      if (platform.availableOnAndroid &&
+          pubspecParameters.appDistributionAndroidTesters != null) {
+        androidTesters = await appDistributionHelper
+            .getTesters(pubspecParameters.appDistributionAndroidTesters!);
         if (androidTesters == null) {
           Printer.error(
             "process cannot continue because android testers could not be obtained",
