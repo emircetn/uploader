@@ -8,6 +8,7 @@ import "package:uploader/src/service/android_upload_service.dart";
 import "package:uploader/src/service/ios_upload_service.dart";
 import "package:uploader/src/service/process_service.dart";
 import 'package:uploader/src/util/printer.dart';
+import "package:uploader/src/util/string_utils.dart";
 
 class UploaderManager {
   final UploaderConfig config;
@@ -59,45 +60,70 @@ class UploaderManager {
     final platform = config.platform;
     final uploadType = config.uploadType;
 
-    StringBuffer info = StringBuffer(
-      "Project Name: ${appDetail.appName}\n"
-      "Build Name: ${appDetail.buildVersion}\n"
-      "Build Number: ${appDetail.buildNumber}\n"
-      "Platform: ${platform.value}\n"
-      "Upload Type: ${uploadType.value}\n",
-    );
+    final info = StringBuffer();
+
+    info.writeln(_formatField("Project Name", appDetail.appName));
+    info.writeln(_formatField("Build Name", appDetail.buildVersion));
+    info.writeln(_formatField("Build Number", appDetail.buildNumber));
+    info.writeln(_formatField("Platform", platform.value));
+    info.writeln(_formatField("Upload Type", uploadType.value));
 
     if (uploadType.availableOnAppDistribution) {
       final distributionConfig = config.appDistributionConfig!;
 
+      info.writeln();
+      info.writeln("---- App Distribution Details ----");
+
       if (platform.availableOnAndroid) {
-        info.write(
-          "Android Firebase App Id: ${distributionConfig.accountConfig.androidId}\n",
+        info.writeln(
+          _formatField(
+            "Android Firebase App Id",
+            distributionConfig.accountConfig.androidId!,
+          ),
         );
-        info.write(
-          "Android Testers: "
-          "[${distributionConfig.formattedAndroidTesters}]\n",
+
+        info.writeln(
+          _formatField(
+            "Android Testers",
+            StringUtils.truncate(distributionConfig.formattedAndroidTesters),
+          ),
         );
       }
+
       if (platform.availableOnIos) {
-        info.write(
-          "Ios Firebase App Id: ${distributionConfig.accountConfig.iosId}\n",
+        info.writeln(
+          _formatField(
+            "iOS Firebase App Id",
+            distributionConfig.accountConfig.iosId!,
+          ),
         );
-        info.write(
-          "App Distribution Android Build Type : "
-          "[${distributionConfig.androidBuildType.value}]\n",
+
+        info.writeln(
+          _formatField(
+            "App Distribution Android Build Type",
+            distributionConfig.androidBuildType.value,
+          ),
         );
-        info.write(
-          "IOS Testers: "
-          "[${distributionConfig.formattedIosTesters}]\n",
+
+        info.writeln(
+          _formatField(
+            "iOS Testers",
+            StringUtils.truncate(
+              distributionConfig.formattedIosTesters,
+            ),
+          ),
         );
       }
-      info.write(
-        "Release Notes: "
-        "\n${distributionConfig.formattedReleaseNotes}\n",
-      );
+
+      info.writeln();
+      info.writeln("---- Release Notes ----");
+      info.writeln(distributionConfig.formattedReleaseNotes);
     }
 
     Printer.info("$info");
+  }
+
+  String _formatField(String label, String value) {
+    return "$label: ".padRight(25) + value;
   }
 }

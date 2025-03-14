@@ -19,9 +19,13 @@ final class AppDistributionConfig {
   String get formattedReleaseNotes =>
       releaseNotes == null ? "-" : releaseNotes!.join('\n');
 
-  String get formattedIosTesters =>
-      iosTesters == null ? "" : iosTesters!.join(", ");
+  String get formattedIosTesters {
+    if (iosTesters == null) return "";
+    return iosTesters!.join(", ");
+  }
 
-  String get formattedAndroidTesters =>
-      androidTesters == null ? "" : androidTesters!.join(", ");
+  String get formattedAndroidTesters {
+    if (androidTesters == null) return "";
+    return androidTesters!.join(", ");
+  }
 }

@@ -12,17 +12,19 @@ flutter pub add --dev uploader
 uploader:
   platform: all # ios, android, all
   uploadType: all # appDistribution, store, all
-  iosConfig:
+  testFlightConfig:
     path: ios/deploy_config.json # must include auth_key and issuer_id
-  androidConfig:
+  playStoreConfigPath:
     path: android/deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
     packageName: "com.package.name"
     skslPath: android/sksl.json
   appDistributionConfig:
     androidBuildType: abb # abb, apk
-    androidTestersPath: android/testers.txt
-    iosTestersPath: ios/testers.txt
+    androidTesters: 
+       path: android/testers.txt
+    iosTesters: 
+       url: https://testers.txt
     releaseNotesPath: release_notes.txt
     useParallelUpload: true # default:true
     enableLogFileCreation: false # default: false.

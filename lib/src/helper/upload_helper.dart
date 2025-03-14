@@ -1,9 +1,10 @@
 import 'package:uploader/src/config/android/android_account_config.dart';
-import 'package:uploader/src/config/android/android_config.dart';
+import 'package:uploader/src/config/android/play_store_config.dart';
 import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
 import 'package:uploader/src/config/ios/ios_account_config.dart';
-import 'package:uploader/src/config/ios/ios_config.dart';
+import 'package:uploader/src/config/ios/test_flight_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
+import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/android_helper.dart';
 import 'package:uploader/src/helper/app_distribution_helper.dart';
@@ -32,12 +33,21 @@ class UploadHelper {
       );
     }
 
-    if (platform.availableOnIos && !pubspecParameters.checkIosParameters) {
-      return Printer.error("ios config is missing or incorrect");
+    if (platform.availableOnIos &&
+        uploadType.availableOnStore &&
+        !pubspecParameters.checkIosStoreParameters) {
+      return Printer.error(
+        "ios config is missing or incorrect\n"
+        "check ${PubspecKeys.testFlightConfig} -> ${PubspecKeys.path} parameter",
+      );
     }
     if (platform.availableOnAndroid &&
-        !pubspecParameters.checkAndroidParameters) {
-      return Printer.error("android config is missing or incorrect");
+        uploadType.availableOnStore &&
+        !pubspecParameters.checkAndroidStoreParameters) {
+      return Printer.error(
+        "android config is missing or incorrect\n"
+        "check ${PubspecKeys.playStoreConfig} -> ${PubspecKeys.path} parameter",
+      );
     }
 
     return true;
@@ -49,19 +59,19 @@ class UploadHelper {
     final platform = pubspecParameters.platform!;
     final uploadType = pubspecParameters.uploadType!;
 
-    AndroidConfig? androidConfig;
-    IosConfig? iosConfig;
+    PlayStoreConfig? playStoreConfigPath;
+    TestFlightConfig? testFlightConfig;
     AppDistributionConfig? appDistributionConfig;
 
-    if (platform.availableOnAndroid) {
+    if (platform.availableOnAndroid && uploadType.availableOnStore) {
       final androidHelper = AndroidHelper();
 
       AndroidAccountConfig? androidAccountConfig;
 
       if (uploadType.availableOnStore) {
-        final androidConfigPath = pubspecParameters.androidConfigPath!;
+        final playStoreConfigPath = pubspecParameters.playStoreConfigPath!;
         androidAccountConfig = await androidHelper.getAccountConfig(
-          androidConfigPath,
+          playStoreConfigPath,
         );
 
         if (androidAccountConfig == null) {
@@ -72,7 +82,7 @@ class UploadHelper {
         }
       }
 
-      androidConfig = AndroidConfig(
+      playStoreConfigPath = PlayStoreConfig(
         packageName: pubspecParameters.androidPackageName!,
         track: pubspecParameters.androidTrack,
         skslPath: pubspecParameters.androidSkslPath,
@@ -80,9 +90,9 @@ class UploadHelper {
       );
     }
 
-    if (platform.availableOnIos) {
+    if (platform.availableOnIos && uploadType.availableOnStore) {
       final iosHelper = IosHelper();
-      final iosConfigPath = pubspecParameters.iosConfigPath!;
+      final testFlightConfigPath = pubspecParameters.testFlightConfigPath!;
       String? ipaName = await iosHelper.getIpaName();
 
       if (ipaName == null) {
@@ -94,7 +104,7 @@ class UploadHelper {
 
       if (uploadType.availableOnStore) {
         iosAccountConfig = await iosHelper.getAccountConfig(
-          iosConfigPath,
+          testFlightConfigPath,
         );
 
         if (iosAccountConfig == null) {
@@ -104,7 +114,8 @@ class UploadHelper {
           return null;
         }
       }
-      iosConfig = IosConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
+      testFlightConfig =
+          TestFlightConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
     }
 
     if (uploadType.availableOnAppDistribution) {
@@ -134,13 +145,11 @@ class UploadHelper {
           return null;
         }
       }
-
       List<String>? iosTesters;
       if (platform.availableOnIos &&
-          pubspecParameters.appDistributionIosTestersPath != null) {
-        iosTesters = await _fileHelper.readFileLines(
-          pubspecParameters.appDistributionIosTestersPath!,
-        );
+          pubspecParameters.appDistributionIosTesters != null) {
+        iosTesters = await appDistributionHelper
+            .getTesters(pubspecParameters.appDistributionIosTesters!);
         if (iosTesters == null) {
           Printer.error(
             "process cannot continue because ios testers could not be obtained",
@@ -151,10 +160,9 @@ class UploadHelper {
 
       List<String>? androidTesters;
       if (platform.availableOnAndroid &&
-          pubspecParameters.appDistributionAndroidTestersPath != null) {
-        androidTesters = await _fileHelper.readFileLines(
-          pubspecParameters.appDistributionAndroidTestersPath!,
-        );
+          pubspecParameters.appDistributionAndroidTesters != null) {
+        androidTesters = await appDistributionHelper
+            .getTesters(pubspecParameters.appDistributionAndroidTesters!);
         if (androidTesters == null) {
           Printer.error(
             "process cannot continue because android testers could not be obtained",
@@ -174,8 +182,8 @@ class UploadHelper {
     return UploaderConfig(
       uploadType: uploadType,
       platform: platform,
-      androidConfig: androidConfig,
-      iosConfig: iosConfig,
+      playStoreConfig: playStoreConfigPath,
+      testFlightConfig: testFlightConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
       useParallelUpload: pubspecParameters.useParallelUpload,
