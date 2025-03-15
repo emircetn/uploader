@@ -59,7 +59,7 @@ class UploadHelper {
     final platform = pubspecParameters.platform!;
     final uploadType = pubspecParameters.uploadType!;
 
-    PlayStoreConfig? playStoreConfigPath;
+    PlayStoreConfig? playStoreConfig;
     TestFlightConfig? testFlightConfig;
     AppDistributionConfig? appDistributionConfig;
 
@@ -82,7 +82,7 @@ class UploadHelper {
         }
       }
 
-      playStoreConfigPath = PlayStoreConfig(
+      playStoreConfig = PlayStoreConfig(
         packageName: pubspecParameters.androidPackageName!,
         track: pubspecParameters.androidTrack,
         skslPath: pubspecParameters.androidSkslPath,
@@ -182,7 +182,7 @@ class UploadHelper {
     return UploaderConfig(
       uploadType: uploadType,
       platform: platform,
-      playStoreConfig: playStoreConfigPath,
+      playStoreConfig: playStoreConfig,
       testFlightConfig: testFlightConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
