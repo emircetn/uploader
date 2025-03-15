@@ -14,7 +14,7 @@ uploader:
   uploadType: all # appDistribution, store, all
   testFlightConfig:
     path: ios/deploy_config.json # must include auth_key and issuer_id
-  playStoreConfigPath:
+  playStoreConfig:
     path: android/deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
     packageName: "com.package.name"

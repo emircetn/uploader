@@ -18,7 +18,7 @@ This package is used for creating AAB/APK and IPA files, and sending them to Pla
 
 - Configure the `keystore` (https://developer.android.com/studio/publish/app-signing#secure-shared-keystore).
 - Activate the `Google Play Android Developer API` on `Google Cloud ` (https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/?hl=en).
-- Create a `service account` from this link: https://console.cloud.google.com/iam-admin/serviceaccounts?hl=en. After creating the `service account` , generate a new `JSON` `Key` file from the `Keys` tab of the `service account` . Provide the path of this JSON file to the `Uploader` 's `playStoreConfigPath->path` parameter.
+- Create a `service account` from this link: https://console.cloud.google.com/iam-admin/serviceaccounts?hl=en. After creating the `service account` , generate a new `JSON` `Key` file from the `Keys` tab of the `service account` . Provide the path of this JSON file to the `Uploader` 's `playStoreConfig->path` parameter.
 - Finally, the service account needs to be granted permission. From the ` Users and Permissions` section of the `Google Play Console` , send an invitation to the `service account` email with `Admin` or `Releases` permissions.
 
 ### FIREBASE APP DISTRIBUTION
@@ -40,7 +40,7 @@ uploader:
   uploadType: all # appDistribution, store, all
   testFlightConfig:
     path: ios_deploy_config.json # must include auth_key and issuer_id
-  playStoreConfigPath:
+  playStoreConfig:
     path: android_deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
     packageName: "com.package.name"
