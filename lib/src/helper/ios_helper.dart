@@ -50,6 +50,7 @@ class IosHelper {
 
       return ipaName;
     } catch (e) {
+      Printer.error("error occurred while reading ipa name: $e");
       return null;
     }
   }

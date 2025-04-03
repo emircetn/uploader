@@ -43,14 +43,13 @@ uploader:
   playStoreConfig:
     path: android_deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
-    packageName: "com.package.name"
     skslPath: null
   appDistributionConfig:
     androidBuildType: abb # abb, apk
-    androidTesters: 
-       path: android/testers.txt
-    iosTesters: 
-       url: https://testers.txt
+    androidTesters:
+      path: android/testers.txt
+    iosTesters:
+      url: https://testers.txt
     releaseNotesPath: release_notes.txt
   useParallelUpload: true # default:true
   enableLogFileCreation: false # default: false.

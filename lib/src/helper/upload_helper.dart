@@ -1,8 +1,8 @@
 import 'package:uploader/src/config/android/android_account_config.dart';
-import 'package:uploader/src/config/android/play_store_config.dart';
+import 'package:uploader/src/config/android/android_config.dart';
 import 'package:uploader/src/config/app_distribution/app_distribution_config.dart';
 import 'package:uploader/src/config/ios/ios_account_config.dart';
-import 'package:uploader/src/config/ios/test_flight_config.dart';
+import 'package:uploader/src/config/ios/ios_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
@@ -59,11 +59,11 @@ class UploadHelper {
     final platform = pubspecParameters.platform!;
     final uploadType = pubspecParameters.uploadType!;
 
-    PlayStoreConfig? playStoreConfig;
-    TestFlightConfig? testFlightConfig;
+    AndroidConfig? playStoreConfig;
+    IosConfig? iosConfig;
     AppDistributionConfig? appDistributionConfig;
 
-    if (platform.availableOnAndroid && uploadType.availableOnStore) {
+    if (platform.availableOnAndroid) {
       final androidHelper = AndroidHelper();
 
       AndroidAccountConfig? androidAccountConfig;
@@ -82,15 +82,22 @@ class UploadHelper {
         }
       }
 
-      playStoreConfig = PlayStoreConfig(
-        packageName: pubspecParameters.androidPackageName!,
+      final packageName = await androidHelper.getPackageName();
+
+      if (packageName == null) {
+        Printer.error("process cannot continue because package name not found");
+        return null;
+      }
+
+      playStoreConfig = AndroidConfig(
+        packageName: packageName,
         track: pubspecParameters.androidTrack,
         skslPath: pubspecParameters.androidSkslPath,
         accountConfig: androidAccountConfig,
       );
     }
 
-    if (platform.availableOnIos && uploadType.availableOnStore) {
+    if (platform.availableOnIos) {
       final iosHelper = IosHelper();
       final testFlightConfigPath = pubspecParameters.testFlightConfigPath!;
       String? ipaName = await iosHelper.getIpaName();
@@ -114,8 +121,10 @@ class UploadHelper {
           return null;
         }
       }
-      testFlightConfig =
-          TestFlightConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
+      iosConfig = IosConfig(
+        ipaName: ipaName,
+        accountConfig: iosAccountConfig,
+      );
     }
 
     if (uploadType.availableOnAppDistribution) {
@@ -183,7 +192,7 @@ class UploadHelper {
       uploadType: uploadType,
       platform: platform,
       playStoreConfig: playStoreConfig,
-      testFlightConfig: testFlightConfig,
+      iosConfig: iosConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
       useParallelUpload: pubspecParameters.useParallelUpload,

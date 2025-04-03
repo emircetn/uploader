@@ -1,10 +1,10 @@
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 
-class TestFlightConfig {
+class IosConfig {
   final String ipaName;
   final IosAccountConfig? accountConfig;
 
-  TestFlightConfig({
+  IosConfig({
     required this.ipaName,
     required this.accountConfig,
   });
