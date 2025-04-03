@@ -13,7 +13,6 @@ class PubspecParameters {
 
   //android
   final String? playStoreConfigPath;
-  final String? androidPackageName;
   final AndroidTrack androidTrack;
   final String? androidSkslPath;
 
@@ -30,8 +29,7 @@ class PubspecParameters {
 
   bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
-  bool get checkAndroidStoreParameters =>
-      checkString(playStoreConfigPath) && checkString(androidPackageName);
+  bool get checkAndroidStoreParameters => checkString(playStoreConfigPath);
 
   PubspecParameters({
     required this.uploadType,
@@ -39,7 +37,6 @@ class PubspecParameters {
     required this.testFlightConfigPath,
     required this.playStoreConfigPath,
     this.androidTrack = AndroidTrack.internal,
-    required this.androidPackageName,
     required this.androidSkslPath,
     this.appDistributionAndroidBuildType = AndroidBuildType.abb,
     required this.appDistributionAndroidTesters,
@@ -76,9 +73,6 @@ class PubspecParameters {
       playStoreConfigPath: playStoreConfigMap == null
           ? null
           : playStoreConfigMap[PubspecKeys.path],
-      androidPackageName: playStoreConfigMap == null
-          ? null
-          : playStoreConfigMap[PubspecKeys.packageName],
       androidTrack: playStoreConfigMap == null
           ? AndroidTrack.internal
           : AndroidTrack.values.firstWhereOrNull((track) =>

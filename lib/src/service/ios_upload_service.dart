@@ -14,8 +14,7 @@ class IosUploadService {
 
   Future<bool> upload(String? firebaseAppId) async {
     Printer.infoIOS("[ios] UPLOAD PROCESS STARTED FOR IOS", bold: true);
-    final iosAccountConfig = config.testFlightConfig!.accountConfig;
-    final ipaName = config.testFlightConfig!.ipaName;
+    final ipaName = config.iosConfig!.ipaName;
     final uploadType = config.uploadType;
 
     final availableOnAppDistribution =
@@ -32,7 +31,7 @@ class IosUploadService {
     if (uploadType.availableOnStore) {
       isSuccess = await uploadToTestFlight(
         ipaName: ipaName,
-        accountConfig: iosAccountConfig!,
+        accountConfig: config.iosConfig!.accountConfig!,
       );
     }
     if (isSuccess == true) {
@@ -109,7 +108,7 @@ class IosUploadService {
     Printer.infoIOS("[ios] IPA(appStore) uploading to testflight...");
 
     isSuccess = await processService.uploadToTestFlight(
-      testFlightConfig: config.testFlightConfig!,
+      testFlightConfig: config.iosConfig!,
       accountConfig: accountConfig,
       ipaName: ipaName,
     );

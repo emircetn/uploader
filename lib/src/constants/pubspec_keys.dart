@@ -4,7 +4,6 @@ class PubspecKeys {
   static const String platform = 'platform';
 
   static const String playStoreConfig = 'playStoreConfig';
-  static const String packageName = 'packageName';
   static const String track = 'track';
   static const String skslPath = 'skslPath';
 

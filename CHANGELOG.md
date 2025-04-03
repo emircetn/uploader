@@ -1,3 +1,8 @@
+## 0.1.4
+
+- Android package name is now automatically retrieved, removing the need to provide it as a parameter
+- Fixed a bug that occurred during the upload process to Firebase App Distribution
+
 ## 0.1.3
 
 - Update readme

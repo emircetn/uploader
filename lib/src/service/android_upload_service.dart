@@ -20,7 +20,6 @@ class AndroidUploadService {
       "[android] UPLOAD PROCESS STARTED FOR ANDROID",
       bold: true,
     );
-    final androidAccountConfig = config.playStoreConfig!.accountConfig;
     final uploadType = config.uploadType;
 
     bool isSuccess = await buildAbb();
@@ -37,7 +36,7 @@ class AndroidUploadService {
     }
     if (uploadType.availableOnStore) {
       isSuccess = await uploadToPlayConsole(
-        accountConfig: androidAccountConfig!,
+        accountConfig: config.playStoreConfig!.accountConfig!,
       );
     }
     if (isSuccess) {
