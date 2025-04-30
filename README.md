@@ -56,6 +56,13 @@ uploader:
   extraBuildParameters: null
 ```
 
+# Run the package
+After setting up the configuration, you can start the upload process with the following command:
+
+```
+dart run uploader
+```
+
 # Collaborators
 
 <a href="https://github.com/emircetn/uploader/graphs/contributors">
