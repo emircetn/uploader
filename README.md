@@ -34,6 +34,18 @@ dev_dependencies:
   uploader: any
 ```
 
+```sh
+dart run uploader              # asks for confirmation before it starts
+dart run uploader --yes        # no prompt, for CI
+dart run uploader --dry-run    # prints every command without running any
+dart run uploader --help
+```
+
+The process exits with a non-zero status when anything fails, so it can be
+used as a CI step directly.
+
+## Configuration
+
 ```yaml
 uploader:
   platform: all # ios, android, all
@@ -43,6 +55,7 @@ uploader:
   playStoreConfig:
     path: android_deploy_config.json # must include client_email, client_id, private_key
     track: internal # internal, alpha, beta
+    releaseStatus: completed # completed, draft. default: completed
     skslPath: null
   appDistributionConfig:
     androidBuildType: abb # abb, apk
@@ -50,18 +63,56 @@ uploader:
       path: android/testers.txt
     iosTesters:
       url: https://testers.txt
+    androidGroups: # Firebase App Distribution group aliases
+      - qa
+    iosGroups:
+      - qa
     releaseNotesPath: release_notes.txt
-  useParallelUpload: true # default:true
-  enableLogFileCreation: false # default: false.
+  useParallelUpload: true # default: true
+  uploadRetryCount: 2 # extra attempts per upload step. default: 2
+  enableLogFileCreation: false # default: false
   extraBuildParameters: null
 ```
 
-# Run the package
-After setting up the configuration, you can start the upload process with the following command:
+### Build parameters
 
+`extraBuildParameters` is appended to every `flutter build` the run performs.
+Two optional lists narrow that down to a single target:
+
+```yaml
+uploader:
+  extraBuildParameters: # every build
+    - --no-tree-shake-icons
+  appDistributionExtraBuildParameters: # App Distribution builds only
+    - --dart-define=APP_CHANNEL=staging
+  storeExtraBuildParameters: [] # store builds only
 ```
-dart run uploader
-```
+
+A build receives the common list followed by its own target's list. Writing
+none of these keys behaves exactly as before.
+
+This works because a run builds each target separately, so the two never share
+an artifact:
+
+| | App Distribution build | Store build |
+|---|---|---|
+| iOS | `flutter build ipa --export-method=ad-hoc` | `flutter build ipa --export-method=app-store` |
+| Android, `androidBuildType: apk` | `flutter build apk` | `flutter build appbundle` |
+| Android, `androidBuildType: abb` | `flutter build appbundle` | `flutter build appbundle` |
+
+With `uploadType: all` in `abb` mode that means two app bundles are produced.
+The cost is one extra build; the gain is that a diagnostic `--dart-define`
+meant for testers never reaches the binary that goes to the store.
+
+The confirmation screen prints the resolved list for each target before
+anything is built, so a flag written to the wrong list is visible up front.
+
+Production releases are deliberately out of scope: the tool publishes to the
+test tracks and the production rollout stays a Play Console decision.
+
+Only `platform` and `uploadType` are required. Every other key falls back to
+the default shown above.
+
 
 # Collaborators
 

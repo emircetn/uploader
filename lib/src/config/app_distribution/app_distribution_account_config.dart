@@ -8,8 +8,5 @@ class AppDistributionAccountConfig {
       (!platform.availableOnAndroid || androidId != null) &&
       (!platform.availableOnIos || iosId != null);
 
-  AppDistributionAccountConfig({
-    this.iosId,
-    this.androidId,
-  });
+  AppDistributionAccountConfig({this.iosId, this.androidId});
 }

@@ -14,9 +14,7 @@ class IosHelper {
       return null;
     }
 
-    final accountConfig = IosAccountConfig.fromJson(
-      iosAccountConfigFile,
-    );
+    final accountConfig = IosAccountConfig.fromJson(iosAccountConfigFile);
 
     if (!accountConfig.checkParameters) {
       Printer.error(
@@ -40,13 +38,16 @@ class IosHelper {
 
       if (lineList == null) return null;
 
-      final index =
-          lineList.indexWhere((element) => element.contains(cFBundleNameKey));
+      final index = lineList.indexWhere(
+        (element) => element.contains(cFBundleNameKey),
+      );
 
       final line = lineList[index + 1];
 
-      final ipaName =
-          line.substring(initTag.length + 1, line.length - lastTag.length);
+      final ipaName = line.substring(
+        initTag.length + 1,
+        line.length - lastTag.length,
+      );
 
       return ipaName;
     } catch (e) {

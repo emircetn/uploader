@@ -12,6 +12,6 @@ class PathConstants {
   static String ipaRelativePath(String name) => "build/ios/ipa/$name.ipa";
 
   static String get abbPath => "$_basePath/$abbRelativePath";
-  static String get apkPath => "$_basePath/$abbRelativePath";
+  static String get apkPath => "$_basePath/$apkRelativePath";
   static String ipaPath(String name) => "$_basePath/${ipaRelativePath(name)}";
 }

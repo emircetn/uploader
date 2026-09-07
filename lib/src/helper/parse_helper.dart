@@ -1,42 +1,34 @@
 import 'dart:io';
 
-import 'package:uploader/src/helper/file_helper.dart';
 import 'package:uploader/src/model/app_detail.dart';
+import 'package:yaml/yaml.dart';
 
 class ParseHelper {
-  final fileHelper = FileHelper();
+  final String pubspecPath;
+
+  ParseHelper({this.pubspecPath = "pubspec.yaml"});
 
   Future<AppDetail?> getAppDetails() async {
     try {
-      var yamlFile = File("pubspec.yaml");
-      var yamlContent = yamlFile.readAsStringSync();
-      var lines = yamlContent.split("\n");
+      final content = await File(pubspecPath).readAsString();
+      final pubspec = loadYaml(content);
 
-      String? projectName;
-      String? buildVersion;
-      String? buildNumber;
+      if (pubspec is! Map) return null;
 
-      for (var line in lines) {
-        if (projectName != null &&
-            buildVersion != null &&
-            buildNumber != null) {
-          break;
-        }
-        if (line.contains("name:")) {
-          projectName = line.split(":")[1].trim();
-        }
+      final name = pubspec['name'];
+      final version = pubspec['version'];
 
-        if (line.contains("version:")) {
-          final buildNumberAndNumber = line.split(":")[1].trim();
-          buildVersion = buildNumberAndNumber.split("+")[0];
-          buildNumber = buildNumberAndNumber.split("+")[1];
-        }
-      }
+      if (name is! String || name.isEmpty) return null;
+      if (version == null) return null;
+
+      final versionAndBuildNumber = "$version".split("+");
 
       return AppDetail(
-        appName: projectName!,
-        buildVersion: buildVersion!,
-        buildNumber: buildNumber!,
+        appName: name,
+        buildVersion: versionAndBuildNumber.first,
+        buildNumber: versionAndBuildNumber.length > 1
+            ? versionAndBuildNumber[1]
+            : null,
       );
     } catch (e) {
       return null;

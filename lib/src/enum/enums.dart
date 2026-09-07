@@ -46,3 +46,18 @@ enum AndroidTrack {
 
   const AndroidTrack({required this.value});
 }
+
+enum ReleaseStatus {
+  draft(value: "draft"),
+  completed(value: "completed");
+
+  final String value;
+
+  const ReleaseStatus({required this.value});
+}
+
+/// The two things a run can produce a build for.
+///
+/// [UploadType] is not usable here: its `all` value means "both targets", not
+/// a target of its own.
+enum BuildTarget { appDistribution, store }

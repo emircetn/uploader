@@ -6,6 +6,9 @@ final class AppDistributionConfig {
   final AndroidBuildType androidBuildType;
   final List<String>? iosTesters;
   final List<String>? androidTesters;
+  final List<String>? iosGroups;
+  final List<String>? androidGroups;
+
   final List<String>? releaseNotes;
 
   AppDistributionConfig({
@@ -13,19 +16,19 @@ final class AppDistributionConfig {
     this.androidBuildType = AndroidBuildType.abb,
     required this.androidTesters,
     required this.iosTesters,
+    this.androidGroups,
+    this.iosGroups,
     required this.releaseNotes,
   });
 
   String get formattedReleaseNotes =>
       releaseNotes == null ? "-" : releaseNotes!.join('\n');
 
-  String get formattedIosTesters {
-    if (iosTesters == null) return "";
-    return iosTesters!.join(", ");
-  }
+  String get formattedIosTesters => iosTesters?.join(", ") ?? "";
 
-  String get formattedAndroidTesters {
-    if (androidTesters == null) return "";
-    return androidTesters!.join(", ");
-  }
+  String get formattedAndroidTesters => androidTesters?.join(", ") ?? "";
+
+  String get formattedIosGroups => iosGroups?.join(", ") ?? "";
+
+  String get formattedAndroidGroups => androidGroups?.join(", ") ?? "";
 }

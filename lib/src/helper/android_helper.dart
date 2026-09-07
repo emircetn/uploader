@@ -6,9 +6,7 @@ class AndroidHelper {
   final _fileHelper = FileHelper();
 
   Future<AndroidAccountConfig?> getAccountConfig(String path) async {
-    final androidAccountConfigFile = await _fileHelper.readFile(
-      path,
-    );
+    final androidAccountConfigFile = await _fileHelper.readFile(path);
 
     if (androidAccountConfigFile == null) {
       Printer.error(
