@@ -113,6 +113,7 @@ test tracks and the production rollout stays a Play Console decision.
 Only `platform` and `uploadType` are required. Every other key falls back to
 the default shown above.
 
+
 # Collaborators
 
 <a href="https://github.com/emircetn/uploader/graphs/contributors">
