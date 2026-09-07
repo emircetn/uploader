@@ -5,11 +5,15 @@ import 'dart:io';
 
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/ios/ios_config.dart';
-import 'package:uploader/src/constant/path_constants.dart';
+import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/util/printer.dart';
 
 class ProcessService {
+  final bool dryRun;
+
+  ProcessService({this.dryRun = false});
+
   Future<bool> buildIpa({
     required IPAType type,
     List<String>? extraBuildParameters,
@@ -23,8 +27,7 @@ class ProcessService {
         (type == IPAType.adHoc
             ? '--export-method=ad-hoc'
             : '--export-method=app-store'),
-        if (extraBuildParameters != null && extraBuildParameters.isNotEmpty)
-          extraBuildParameters.join(', ')
+        ...?extraBuildParameters,
       ],
     );
   }
@@ -44,25 +47,16 @@ class ProcessService {
           '--bundle-sksl-path',
           skslPath,
         ],
-        if (extraBuildParameters != null && extraBuildParameters.isNotEmpty)
-          extraBuildParameters.join(', ')
+        ...?extraBuildParameters,
       ],
     );
   }
 
-  Future<bool> buildApk({
-    List<String>? extraBuildParameters,
-  }) async {
+  Future<bool> buildApk({List<String>? extraBuildParameters}) async {
     return await _runProcess(
       platform: AppPlatform.android,
       executable: 'flutter',
-      arguments: [
-        'build',
-        'apk',
-        '--release',
-        if (extraBuildParameters != null && extraBuildParameters.isNotEmpty)
-          extraBuildParameters.join(', ')
-      ],
+      arguments: ['build', 'apk', '--release', ...?extraBuildParameters],
     );
   }
 
@@ -71,23 +65,18 @@ class ProcessService {
     required String ipaName,
     required String? releaseNotes,
     required List<String>? testers,
+    required List<String>? groups,
   }) async {
     return await _runProcess(
       platform: AppPlatform.ios,
       executable: 'firebase',
       arguments: [
         'appdistribution:distribute',
-        "build/ios/ipa/$ipaName.ipa",
+        PathConstants.ipaRelativePath(ipaName),
         '--app',
         firebaseAppId,
-        if (releaseNotes != null) ...[
-          '--release-notes',
-          ".$releaseNotes",
-        ],
-        if (testers != null && testers.isNotEmpty) ...[
-          '--testers',
-          testers.join(', '),
-        ]
+        if (releaseNotes != null) ...['--release-notes', ".$releaseNotes"],
+        ..._recipientArguments(testers: testers, groups: groups),
       ],
     );
   }
@@ -96,6 +85,7 @@ class ProcessService {
     required String firebaseAppId,
     required String? releaseNotes,
     required List<String>? testers,
+    required List<String>? groups,
   }) async {
     return await _runProcess(
       platform: AppPlatform.android,
@@ -105,14 +95,8 @@ class ProcessService {
         PathConstants.abbRelativePath,
         '--app',
         firebaseAppId,
-        if (releaseNotes != null) ...[
-          '--release-notes',
-          ".$releaseNotes",
-        ],
-        if (testers != null && testers.isNotEmpty) ...[
-          '--testers',
-          testers.join(', '),
-        ]
+        if (releaseNotes != null) ...['--release-notes', ".$releaseNotes"],
+        ..._recipientArguments(testers: testers, groups: groups),
       ],
     );
   }
@@ -121,6 +105,7 @@ class ProcessService {
     required String firebaseAppId,
     required String? releaseNotes,
     required List<String>? testers,
+    required List<String>? groups,
   }) async {
     return await _runProcess(
       platform: AppPlatform.android,
@@ -130,14 +115,8 @@ class ProcessService {
         PathConstants.apkRelativePath,
         '--app',
         firebaseAppId,
-        if (releaseNotes != null) ...[
-          '--release-notes',
-          ".$releaseNotes",
-        ],
-        if (testers != null && testers.isNotEmpty) ...[
-          '--testers',
-          testers.join(', '),
-        ]
+        if (releaseNotes != null) ...['--release-notes', ".$releaseNotes"],
+        ..._recipientArguments(testers: testers, groups: groups),
       ],
     );
   }
@@ -165,12 +144,35 @@ class ProcessService {
     );
   }
 
+  List<String> _recipientArguments({
+    required List<String>? testers,
+    required List<String>? groups,
+  }) {
+    return [
+      if (testers != null && testers.isNotEmpty) ...[
+        '--testers',
+        testers.join(', '),
+      ],
+      if (groups != null && groups.isNotEmpty) ...[
+        '--groups',
+        groups.join(','),
+      ],
+    ];
+  }
+
   Future<bool> _runProcess({
     required AppPlatform platform,
     required String executable,
     required List<String> arguments,
     ProcessStartMode mode = ProcessStartMode.normal,
   }) async {
+    if (dryRun) {
+      Printer.info(
+        "[${platform.value}] would run: $executable ${arguments.join(' ')}",
+      );
+      return true;
+    }
+
     try {
       final process = await Process.start(
         executable,
@@ -183,14 +185,14 @@ class ProcessService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        print("[${platform.value}] $line");
-      });
+            print("[${platform.value}] $line");
+          });
       process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-        print("[${platform.value}] $line");
-      });
+            print("[${platform.value}] $line");
+          });
 
       final exitCode = await process.exitCode;
 

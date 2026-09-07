@@ -4,8 +4,5 @@ class IosConfig {
   final String ipaName;
   final IosAccountConfig? accountConfig;
 
-  IosConfig({
-    required this.ipaName,
-    required this.accountConfig,
-  });
+  IosConfig({required this.ipaName, required this.accountConfig});
 }

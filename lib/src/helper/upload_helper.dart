@@ -10,6 +10,7 @@ import 'package:uploader/src/helper/android_helper.dart';
 import 'package:uploader/src/helper/app_distribution_helper.dart';
 import 'package:uploader/src/helper/file_helper.dart';
 import 'package:uploader/src/helper/ios_helper.dart';
+import 'package:uploader/src/model/cli_options.dart';
 import 'package:uploader/src/model/pubspec_parameters.dart';
 import 'package:uploader/src/util/printer.dart';
 
@@ -54,8 +55,9 @@ class UploadHelper {
   }
 
   Future<UploaderConfig?> createUploaderConfig(
-    PubspecParameters pubspecParameters,
-  ) async {
+    PubspecParameters pubspecParameters, {
+    CliOptions cliOptions = const CliOptions(),
+  }) async {
     final platform = pubspecParameters.platform!;
     final uploadType = pubspecParameters.uploadType!;
 
@@ -94,6 +96,7 @@ class UploadHelper {
         track: pubspecParameters.androidTrack,
         skslPath: pubspecParameters.androidSkslPath,
         accountConfig: androidAccountConfig,
+        releaseStatus: pubspecParameters.androidReleaseStatus,
       );
     }
 
@@ -121,17 +124,14 @@ class UploadHelper {
           return null;
         }
       }
-      iosConfig = IosConfig(
-        ipaName: ipaName,
-        accountConfig: iosAccountConfig,
-      );
+      iosConfig = IosConfig(ipaName: ipaName, accountConfig: iosAccountConfig);
     }
 
     if (uploadType.availableOnAppDistribution) {
       final appDistributionHelper = AppDistributionHelper();
 
-      final appDistributionAccountConfig =
-          await appDistributionHelper.getAccountConfig(platform);
+      final appDistributionAccountConfig = await appDistributionHelper
+          .getAccountConfig(platform);
 
       if (appDistributionAccountConfig == null ||
           !appDistributionAccountConfig.checkParameters(platform)) {
@@ -154,11 +154,13 @@ class UploadHelper {
           return null;
         }
       }
+
       List<String>? iosTesters;
       if (platform.availableOnIos &&
           pubspecParameters.appDistributionIosTesters != null) {
-        iosTesters = await appDistributionHelper
-            .getTesters(pubspecParameters.appDistributionIosTesters!);
+        iosTesters = await appDistributionHelper.getTesters(
+          pubspecParameters.appDistributionIosTesters!,
+        );
         if (iosTesters == null) {
           Printer.error(
             "process cannot continue because ios testers could not be obtained",
@@ -170,8 +172,9 @@ class UploadHelper {
       List<String>? androidTesters;
       if (platform.availableOnAndroid &&
           pubspecParameters.appDistributionAndroidTesters != null) {
-        androidTesters = await appDistributionHelper
-            .getTesters(pubspecParameters.appDistributionAndroidTesters!);
+        androidTesters = await appDistributionHelper.getTesters(
+          pubspecParameters.appDistributionAndroidTesters!,
+        );
         if (androidTesters == null) {
           Printer.error(
             "process cannot continue because android testers could not be obtained",
@@ -185,6 +188,8 @@ class UploadHelper {
         androidBuildType: pubspecParameters.appDistributionAndroidBuildType,
         androidTesters: androidTesters,
         iosTesters: iosTesters,
+        androidGroups: pubspecParameters.appDistributionAndroidGroups,
+        iosGroups: pubspecParameters.appDistributionIosGroups,
         releaseNotes: releaseNotes,
       );
     }
@@ -195,8 +200,13 @@ class UploadHelper {
       iosConfig: iosConfig,
       appDistributionConfig: appDistributionConfig,
       extraBuildParameters: pubspecParameters.extraBuildParameters,
+      appDistributionExtraBuildParameters:
+          pubspecParameters.appDistributionExtraBuildParameters,
+      storeExtraBuildParameters: pubspecParameters.storeExtraBuildParameters,
       useParallelUpload: pubspecParameters.useParallelUpload,
       enableLogFileCreation: pubspecParameters.enableLogFileCreation,
+      uploadRetryCount: pubspecParameters.uploadRetryCount,
+      cliOptions: cliOptions,
     );
   }
 }

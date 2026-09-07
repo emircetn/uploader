@@ -6,11 +6,13 @@ final class AndroidConfig {
   final AndroidTrack track;
   final String? skslPath;
   final AndroidAccountConfig? accountConfig;
+  final ReleaseStatus releaseStatus;
 
   AndroidConfig({
     required this.packageName,
     this.track = AndroidTrack.internal,
     required this.skslPath,
     this.accountConfig,
+    this.releaseStatus = ReleaseStatus.completed,
   });
 }

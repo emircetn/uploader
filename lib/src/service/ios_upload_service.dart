@@ -1,45 +1,47 @@
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
-import 'package:uploader/src/constant/path_constants.dart';
+import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/service/process_service.dart';
 import 'package:uploader/src/util/printer.dart';
+import 'package:uploader/src/util/retry_utils.dart';
 
 class IosUploadService {
   final UploaderConfig config;
 
   IosUploadService(this.config);
 
-  final processService = ProcessService();
+  late final processService = ProcessService(dryRun: config.isDryRun);
 
   Future<bool> upload(String? firebaseAppId) async {
     Printer.infoIOS("[ios] UPLOAD PROCESS STARTED FOR IOS", bold: true);
     final ipaName = config.iosConfig!.ipaName;
     final uploadType = config.uploadType;
 
-    final availableOnAppDistribution =
-        firebaseAppId != null && uploadType.availableOnAppDistribution;
+    if (uploadType.availableOnAppDistribution && firebaseAppId == null) {
+      return Printer.error(
+        "[ios] app distribution was requested but the firebase app id "
+        "could not be resolved",
+      );
+    }
 
-    bool? isSuccess;
-    if (availableOnAppDistribution) {
-      isSuccess = await uploadToAppDistribution(
+    if (uploadType.availableOnAppDistribution) {
+      final isSuccess = await uploadToAppDistribution(
         ipaName: ipaName,
-        firebaseAppId: firebaseAppId,
+        firebaseAppId: firebaseAppId!,
       );
       if (!isSuccess) return false;
     }
     if (uploadType.availableOnStore) {
-      isSuccess = await uploadToTestFlight(
+      final isSuccess = await uploadToTestFlight(
         ipaName: ipaName,
         accountConfig: config.iosConfig!.accountConfig!,
       );
+      if (!isSuccess) return false;
     }
-    if (isSuccess == true) {
-      Printer.success("[ios] UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
-      return true;
-    } else {
-      return false;
-    }
+
+    Printer.success("[ios] UPLOAD PROCESS COMPLETED FOR IOS", bold: true);
+    return true;
   }
 
   Future<bool> uploadToAppDistribution({
@@ -52,7 +54,9 @@ class IosUploadService {
 
     bool isSuccess = await processService.buildIpa(
       type: IPAType.adHoc,
-      extraBuildParameters: config.extraBuildParameters,
+      extraBuildParameters: config.buildParametersFor(
+        BuildTarget.appDistribution,
+      ),
     );
     if (!isSuccess) {
       return Printer.error(
@@ -68,11 +72,16 @@ class IosUploadService {
 
     Printer.infoIOS("[ios] IPA(adhoc) uploading to app distribution...");
 
-    isSuccess = await processService.uploadIpaToAppDistribution(
-      firebaseAppId: firebaseAppId,
-      ipaName: ipaName,
-      testers: appDistributionConfig.iosTesters,
-      releaseNotes: appDistributionConfig.formattedReleaseNotes,
+    isSuccess = await RetryUtils.run(
+      () => processService.uploadIpaToAppDistribution(
+        firebaseAppId: firebaseAppId,
+        ipaName: ipaName,
+        testers: appDistributionConfig.iosTesters,
+        groups: appDistributionConfig.iosGroups,
+        releaseNotes: appDistributionConfig.formattedReleaseNotes,
+      ),
+      retryCount: config.uploadRetryCount,
+      label: "[ios] ipa upload to app distribution",
     );
     if (!isSuccess) {
       return Printer.error(
@@ -81,7 +90,8 @@ class IosUploadService {
       );
     }
     return Printer.success(
-        "[ios] IPA(adHoc) file uploaded to app distribution");
+      "[ios] IPA(adHoc) file uploaded to app distribution",
+    );
   }
 
   Future<bool> uploadToTestFlight({
@@ -92,7 +102,7 @@ class IosUploadService {
 
     bool isSuccess = await processService.buildIpa(
       type: IPAType.appStore,
-      extraBuildParameters: config.extraBuildParameters,
+      extraBuildParameters: config.buildParametersFor(BuildTarget.store),
     );
     if (!isSuccess) {
       return Printer.error(
@@ -107,10 +117,14 @@ class IosUploadService {
 
     Printer.infoIOS("[ios] IPA(appStore) uploading to testflight...");
 
-    isSuccess = await processService.uploadToTestFlight(
-      testFlightConfig: config.iosConfig!,
-      accountConfig: accountConfig,
-      ipaName: ipaName,
+    isSuccess = await RetryUtils.run(
+      () => processService.uploadToTestFlight(
+        testFlightConfig: config.iosConfig!,
+        accountConfig: accountConfig,
+        ipaName: ipaName,
+      ),
+      retryCount: config.uploadRetryCount,
+      label: "[ios] ipa upload to testflight",
     );
     if (!isSuccess) {
       return Printer.error(

@@ -24,8 +24,9 @@ class AppDistributionHelper {
         final lineList = await _fileHelper.readFileLines(iosGoogleServicePath);
 
         if (lineList != null) {
-          final index =
-              lineList.indexWhere((element) => element.contains(iosAppIdKey));
+          final index = lineList.indexWhere(
+            (element) => element.contains(iosAppIdKey),
+          );
           final line = lineList[index + 1].trim();
 
           iosAppId = line.substring(
@@ -39,14 +40,13 @@ class AppDistributionHelper {
         const androidGoogleServicePath = "android/app/google-services.json";
         const androidAppIdKey = 'mobilesdk_app_id';
 
-        final lineList =
-            await _fileHelper.readFileLines(androidGoogleServicePath);
+        final lineList = await _fileHelper.readFileLines(
+          androidGoogleServicePath,
+        );
 
         if (lineList != null) {
           final index = lineList.indexWhere(
-            (element) => element.contains(
-              androidAppIdKey,
-            ),
+            (element) => element.contains(androidAppIdKey),
           );
 
           final line = lineList[index].split('":').last;
