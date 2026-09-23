@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/helper/ipa_size_helper.dart';
 import 'package:uploader/src/service/process_service.dart';
 import 'package:uploader/src/util/printer.dart';
 import 'package:uploader/src/util/retry_utils.dart';
@@ -12,6 +15,8 @@ class IosUploadService {
   IosUploadService(this.config);
 
   late final processService = ProcessService(dryRun: config.isDryRun);
+
+  final ipaSizeHelper = IpaSizeHelper();
 
   Future<bool> upload(String? firebaseAppId) async {
     Printer.infoIOS("[ios] UPLOAD PROCESS STARTED FOR IOS", bold: true);
@@ -70,6 +75,8 @@ class IosUploadService {
       "${PathConstants.ipaPath(ipaName)}",
     );
 
+    await _reportIpaSize(ipaName);
+
     Printer.infoIOS("[ios] IPA(adhoc) uploading to app distribution...");
 
     isSuccess = await RetryUtils.run(
@@ -115,6 +122,8 @@ class IosUploadService {
       "${PathConstants.ipaPath(ipaName)}",
     );
 
+    await _reportIpaSize(ipaName);
+
     Printer.infoIOS("[ios] IPA(appStore) uploading to testflight...");
 
     isSuccess = await RetryUtils.run(
@@ -133,5 +142,65 @@ class IosUploadService {
       );
     }
     return Printer.success("[ios] IPA(appStore) file uploaded to testflight");
+  }
+
+  /// Reports how large the archive that was just built is. The run is never
+  /// stopped: whether an oversized build is still worth delivering is a call
+  /// for whoever reads the warning, and stopping here would also strand the
+  /// artifact after a successful build.
+  Future<void> _reportIpaSize(String ipaName) async {
+    // A dry run builds nothing, so an archive on disk would be a stale one
+    // left over from an earlier build.
+    if (config.isDryRun) return;
+
+    final ipaPath = PathConstants.ipaPath(ipaName);
+    if (!File(ipaPath).existsSync()) return;
+
+    final report = await ipaSizeHelper.inspect(ipaPath);
+    if (report == null) {
+      Printer.warning(
+        "[ios] the IPA size could not be read, so it was not checked against "
+        "the $appStoreSizeLimitMb MB App Store limit. `unzip` has to be on the "
+        "PATH for this check to run",
+      );
+      return;
+    }
+
+    final size = report.payloadSizeInMb.toStringAsFixed(1);
+    final remaining = report.remainingMb.toStringAsFixed(1);
+
+    if (report.exceedsLimit) {
+      Printer.error(
+        "[ios] IPA payload is $size MB, "
+        "${report.overLimitMb.toStringAsFixed(1)} MB over the "
+        "$appStoreSizeLimitMb MB App Store limit. The upload was not stopped\n"
+        "${ipaSizeHelper.describeLargestEntries(report)}",
+      );
+      return;
+    }
+
+    if (!report.isListingComplete) {
+      Printer.warning(
+        "[ios] only ${report.parsedBytes} of the ${report.listingBytes} bytes "
+        "unzip listed could be read, so $size MB is a lower bound and the "
+        "$appStoreSizeLimitMb MB App Store limit could not be ruled out\n"
+        "${ipaSizeHelper.describeLargestEntries(report)}",
+      );
+      return;
+    }
+
+    if (report.isCloseToLimit) {
+      Printer.warning(
+        "[ios] IPA payload is $size MB, only $remaining MB under the "
+        "$appStoreSizeLimitMb MB App Store limit\n"
+        "${ipaSizeHelper.describeLargestEntries(report)}",
+      );
+      return;
+    }
+
+    Printer.infoIOS(
+      "[ios] IPA payload is $size MB, $remaining MB under the "
+      "$appStoreSizeLimitMb MB App Store limit",
+    );
   }
 }

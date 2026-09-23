@@ -1,3 +1,9 @@
+## 1.1.0
+
+### iOS
+
+- After each IPA is built, the run now reports its payload size against the App Store's 200 MB over-the-air download limit. Within 15 MB of the limit it prints a warning, and over the limit an error, both listing the fifteen largest frameworks, bundles and asset folders so a build that grew says what grew. The check never stops a run and needs `unzip` on the `PATH`. See "iOS size check" in the README
+
 ## 1.0.0
 
 First stable release. The API and the `pubspec.yaml` schema are now considered
