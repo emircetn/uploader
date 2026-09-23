@@ -113,6 +113,45 @@ test tracks and the production rollout stays a Play Console decision.
 Only `platform` and `uploadType` are required. Every other key falls back to
 the default shown above.
 
+## iOS size check
+
+After each IPA is built the run prints how large it is and compares that to the
+App Store's 200 MB over-the-air download limit:
+
+```
+[INFO]
+[ios] IPA payload is 177.9 MB, 22.1 MB under the 200 MB App Store limit
+```
+
+Within 15 MB of the limit the line becomes a `WARNING`, and over the limit an
+`ERROR`. Both of those also list the fifteen largest items in the archive, so a
+build that grew says what grew:
+
+```
+[ERROR]
+[ios] IPA payload is 203.8 MB, 3.8 MB over the 200 MB App Store limit
+     51.5 MB  Runner
+     21.0 MB  Frameworks/media_kit_libs_ios_video.framework
+     15.3 MB  Frameworks/App.framework
+     10.1 MB  Frameworks/App.framework/flutter_assets/assets/images
+     ...
+```
+
+The number is the uncompressed total of everything under `Payload/`, in decimal
+MB. An IPA also carries `Signatures/` and `Symbols/`, which are not installed on
+a device — counting the whole archive reads far larger than the app actually is.
+
+Items are grouped at frameworks and resource bundles, because that is the unit
+that gets added or removed. Flutter's assets are reported separately from
+`App.framework` even though they ship inside it; otherwise an asset that grew
+would look like the Dart snapshot growing.
+
+The check never stops a run. Whether an oversized build is still worth sending
+to testers is a decision for whoever reads the warning, and failing here would
+only strand an artifact that was built successfully. It needs `unzip` on the
+`PATH` and is skipped silently when there is no archive to read, so `--dry-run`
+is unaffected.
+
 
 # Collaborators
 
