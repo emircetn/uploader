@@ -149,9 +149,11 @@ class IosUploadService {
   /// for whoever reads the warning, and stopping here would also strand the
   /// artifact after a successful build.
   Future<void> _reportIpaSize(String ipaName) async {
-    final ipaPath = PathConstants.ipaPath(ipaName);
+    // A dry run builds nothing, so an archive on disk would be a stale one
+    // left over from an earlier build.
+    if (config.isDryRun) return;
 
-    // A dry run never produces an archive, and that is not worth a warning.
+    final ipaPath = PathConstants.ipaPath(ipaName);
     if (!File(ipaPath).existsSync()) return;
 
     final report = await ipaSizeHelper.inspect(ipaPath);
