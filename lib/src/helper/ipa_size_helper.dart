@@ -31,6 +31,7 @@ const List<String> _bundleSuffixes = [
 final RegExp _listingEntry = RegExp(
   r"^\s*(\d+)\s+(\d+-\d+-\d+)\s+(\d+:\d+)\s+(.+)$",
 );
+final RegExp _listingTotals = RegExp(r"^\s*(\d+)\s+(\d+)\s+files?\s*$");
 
 class IpaSizeEntry {
   final String name;
@@ -43,10 +44,18 @@ class IpaSizeEntry {
 
 class IpaSizeReport {
   final int payloadBytes;
+  final int parsedBytes;
+  final int parsedEntryCount;
+  final int? listingBytes;
+  final int? listingEntryCount;
   final List<IpaSizeEntry> largestEntries;
 
   const IpaSizeReport({
     required this.payloadBytes,
+    required this.parsedBytes,
+    required this.parsedEntryCount,
+    required this.listingBytes,
+    required this.listingEntryCount,
     required this.largestEntries,
   });
 
@@ -59,15 +68,22 @@ class IpaSizeReport {
   bool get exceedsLimit => payloadSizeInMb > appStoreSizeLimitMb;
 
   bool get isCloseToLimit =>
-      payloadSizeInMb > appStoreSizeLimitMb - appStoreSizeWarningMarginMb;
+      payloadSizeInMb >= appStoreSizeLimitMb - appStoreSizeWarningMarginMb;
+
+  /// `unzip -l` closes with a totals row. When the entries that could be read
+  /// do not add up to it, the payload figure can only be too low, so being
+  /// under the limit stops being a safe conclusion. An oversized build still
+  /// reads as oversized, since the figure is a lower bound either way.
+  bool get isListingComplete =>
+      listingBytes == parsedBytes && listingEntryCount == parsedEntryCount;
 }
 
 class IpaSizeHelper {
-  /// Returns null when the size cannot be established: no archive on disk
-  /// (a dry run never produces one), no `unzip`, or nothing under `Payload/`.
+  /// Returns null when the size cannot be established: no `unzip` on the
+  /// `PATH`, a listing this parser does not recognise at all, or nothing under
+  /// `Payload/`. Callers are expected to have checked that the archive exists,
+  /// so that a dry run is not confused with a failed measurement.
   Future<IpaSizeReport?> inspect(String ipaPath) async {
-    if (!File(ipaPath).existsSync()) return null;
-
     final ProcessResult listing;
     try {
       listing = await Process.run("unzip", ["-l", ipaPath]);
@@ -86,15 +102,30 @@ class IpaSizeHelper {
   IpaSizeReport? parsePayloadListing(String listing) {
     final groups = <String, int>{};
     var payloadBytes = 0;
+    var parsedBytes = 0;
+    var parsedEntryCount = 0;
+    int? listingBytes;
+    int? listingEntryCount;
 
     for (final line in listing.split("\n")) {
+      final totals = _listingTotals.firstMatch(line);
+      if (totals != null) {
+        listingBytes = int.tryParse(totals.group(1)!);
+        listingEntryCount = int.tryParse(totals.group(2)!);
+        continue;
+      }
+
       final match = _listingEntry.firstMatch(line);
       if (match == null) continue;
 
       final bytes = int.tryParse(match.group(1)!);
+      if (bytes == null) continue;
+
+      parsedEntryCount++;
+      parsedBytes += bytes;
+
       final path = match.group(4)!;
-      if (bytes == null || bytes == 0) continue;
-      if (!path.startsWith(_payloadPrefix)) continue;
+      if (bytes == 0 || !path.startsWith(_payloadPrefix)) continue;
 
       payloadBytes += bytes;
       final group = _groupFor(path);
@@ -107,6 +138,10 @@ class IpaSizeHelper {
 
     return IpaSizeReport(
       payloadBytes: payloadBytes,
+      parsedBytes: parsedBytes,
+      parsedEntryCount: parsedEntryCount,
+      listingBytes: listingBytes,
+      listingEntryCount: listingEntryCount,
       largestEntries: entries.take(_largestEntryCount).toList(),
     );
   }

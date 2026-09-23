@@ -146,11 +146,20 @@ that gets added or removed. Flutter's assets are reported separately from
 `App.framework` even though they ship inside it; otherwise an asset that grew
 would look like the Dart snapshot growing.
 
+`unzip` closes its listing with a totals row, and the run checks the entries it
+read against it. That matters because the figure can only ever be too low: if a
+line were skipped, an oversized build would otherwise be reported as a
+comfortable one. When the two do not agree the size is presented as a lower
+bound and the limit is reported as unresolved rather than cleared — an
+oversized build still reads as oversized either way.
+
 The check never stops a run. Whether an oversized build is still worth sending
 to testers is a decision for whoever reads the warning, and failing here would
-only strand an artifact that was built successfully. It needs `unzip` on the
-`PATH` and is skipped silently when there is no archive to read, so `--dry-run`
-is unaffected.
+only strand an artifact that was built successfully.
+
+It needs `unzip` on the `PATH`. With no archive on disk nothing is printed, so
+`--dry-run` is unaffected; if the archive is there but cannot be read, the run
+says the size was not checked instead of staying quiet.
 
 
 # Collaborators

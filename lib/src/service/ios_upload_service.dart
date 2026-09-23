@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/constants/path_constants.dart';
@@ -147,8 +149,20 @@ class IosUploadService {
   /// for whoever reads the warning, and stopping here would also strand the
   /// artifact after a successful build.
   Future<void> _reportIpaSize(String ipaName) async {
-    final report = await ipaSizeHelper.inspect(PathConstants.ipaPath(ipaName));
-    if (report == null) return;
+    final ipaPath = PathConstants.ipaPath(ipaName);
+
+    // A dry run never produces an archive, and that is not worth a warning.
+    if (!File(ipaPath).existsSync()) return;
+
+    final report = await ipaSizeHelper.inspect(ipaPath);
+    if (report == null) {
+      Printer.warning(
+        "[ios] the IPA size could not be read, so it was not checked against "
+        "the $appStoreSizeLimitMb MB App Store limit. `unzip` has to be on the "
+        "PATH for this check to run",
+      );
+      return;
+    }
 
     final size = report.payloadSizeInMb.toStringAsFixed(1);
     final remaining = report.remainingMb.toStringAsFixed(1);
@@ -157,7 +171,17 @@ class IosUploadService {
       Printer.error(
         "[ios] IPA payload is $size MB, "
         "${report.overLimitMb.toStringAsFixed(1)} MB over the "
-        "$appStoreSizeLimitMb MB App Store limit\n"
+        "$appStoreSizeLimitMb MB App Store limit. The upload was not stopped\n"
+        "${ipaSizeHelper.describeLargestEntries(report)}",
+      );
+      return;
+    }
+
+    if (!report.isListingComplete) {
+      Printer.warning(
+        "[ios] only ${report.parsedBytes} of the ${report.listingBytes} bytes "
+        "unzip listed could be read, so $size MB is a lower bound and the "
+        "$appStoreSizeLimitMb MB App Store limit could not be ruled out\n"
         "${ipaSizeHelper.describeLargestEntries(report)}",
       );
       return;
