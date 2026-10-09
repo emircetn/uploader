@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/data_source.dart';
+import 'package:uploader/src/model/plugin_stub_config.dart';
 
 class PubspecParameters {
   //general
@@ -36,6 +37,16 @@ class PubspecParameters {
   final bool enableLogFileCreation;
   final int uploadRetryCount;
 
+  final PluginStubConfig pluginStubs;
+
+  /// A file listing every plugin each platform may register. Unset means the
+  /// registered plugins are not checked.
+  final String? allowedPluginsPath;
+
+  /// Whether a run proves, from a code size analysis build, that no Dart code
+  /// can still reach a stubbed plugin before it builds anything it uploads.
+  final bool verifyPluginStubs;
+
   bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
   bool get checkAndroidStoreParameters => checkString(playStoreConfigPath);
@@ -60,6 +71,9 @@ class PubspecParameters {
     required this.useParallelUpload,
     required this.enableLogFileCreation,
     this.uploadRetryCount = 2,
+    this.pluginStubs = const PluginStubConfig(),
+    this.allowedPluginsPath,
+    this.verifyPluginStubs = true,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -141,6 +155,31 @@ class PubspecParameters {
       uploadRetryCount: _parseRetryCount(
         uploaderMap?[PubspecKeys.uploadRetryCount],
       ),
+      pluginStubs: _parsePluginStubs(
+        uploaderMap?[PubspecKeys.pluginStubs],
+        prunedAssets: uploaderMap?[PubspecKeys.prunedAssets],
+      ),
+      allowedPluginsPath: uploaderMap?[PubspecKeys.allowedPluginsPath],
+      verifyPluginStubs: uploaderMap?[PubspecKeys.verifyPluginStubs] ?? true,
+    );
+  }
+
+  static PluginStubConfig _parsePluginStubs(
+    Map<dynamic, dynamic>? map, {
+    Map<dynamic, dynamic>? prunedAssets,
+  }) {
+    return PluginStubConfig(
+      all: _parseIterableToList<String>(map?[PubspecKeys.all]) ?? const [],
+      ios: _parseIterableToList<String>(map?[PubspecKeys.ios]) ?? const [],
+      android:
+          _parseIterableToList<String>(map?[PubspecKeys.android]) ?? const [],
+      prunedAssets: {
+        for (final entry in (prunedAssets ?? const {}).entries)
+          if (entry.value is Iterable)
+            "${entry.key}": _parseIterableToList<String>(entry.value)!,
+      },
+      auto: map?[PubspecKeys.auto] ?? false,
+      keep: _parseIterableToList<String>(map?[PubspecKeys.keep]) ?? const [],
     );
   }
 

@@ -7,6 +7,8 @@ import "package:uploader/src/helper/parse_helper.dart";
 import "package:uploader/src/model/app_detail.dart";
 import "package:uploader/src/service/android_upload_service.dart";
 import "package:uploader/src/service/ios_upload_service.dart";
+import "package:uploader/src/service/plugin_guard_service.dart";
+import "package:uploader/src/service/plugin_stub_service.dart";
 import "package:uploader/src/service/process_service.dart";
 import 'package:uploader/src/util/printer.dart';
 import "package:uploader/src/util/string_utils.dart";
@@ -17,6 +19,17 @@ class UploaderManager {
   final processService = ProcessService();
   final parseHelper = ParseHelper();
 
+  late final pluginStubService = PluginStubService(
+    config: config.pluginStubs,
+    processService: ProcessService(dryRun: config.isDryRun),
+    dryRun: config.isDryRun,
+  );
+
+  late final pluginGuardService = PluginGuardService(
+    config: config,
+    processService: ProcessService(dryRun: config.isDryRun),
+  );
+
   UploaderManager({required this.config});
 
   Future<bool> startUpload() async {
@@ -25,11 +38,19 @@ class UploaderManager {
       Printer.error("app detail not found");
       return false;
     } else {
+      if (!await pluginStubService.recoverInterruptedRun()) return false;
+
       showProjectDetails(appDetail);
 
       if (config.isDryRun) {
         Printer.warning(
           "DRY RUN: no build will run and nothing will be uploaded.",
+        );
+      }
+      if (config.isAudit) {
+        Printer.warning(
+          "AUDIT: each platform is built once for code size analysis; "
+          "nothing will be uploaded.",
         );
       }
 
@@ -43,29 +64,52 @@ class UploaderManager {
         }
       }
 
-      final process = [
-        if (config.platform.availableOnAndroid)
-          () => AndroidUploadService(
-            config,
-          ).upload(config.appDistributionConfig?.accountConfig.androidId),
-        if (config.platform.availableOnIos)
-          () => IosUploadService(
-            config,
-          ).upload(config.appDistributionConfig?.accountConfig.iosId),
-      ];
-      if (config.useParallelUpload) {
-        final futures = await Future.wait(process.map((p) => p()));
-        if (futures.contains(false)) {
-          return false;
-        }
-      } else {
-        for (final p in process) {
-          final isSuccess = await p();
-          if (!isSuccess) return false;
-        }
+      pluginStubService.backUp();
+      try {
+        final analysis = await pluginGuardService.analyse();
+        if (analysis == null) return false;
+
+        final isStubbed = await pluginStubService.apply(
+          autoStubs: analysis.autoStubs,
+        );
+        if (!isStubbed) return false;
+
+        final isSafe = await pluginGuardService.check(
+          stubs: pluginStubService.appliedPlans,
+          analysis: analysis,
+        );
+        if (!isSafe) return false;
+        if (config.isAudit) return true;
+        return await _runUploads();
+      } finally {
+        await pluginStubService.restore();
       }
-      return true;
     }
+  }
+
+  Future<bool> _runUploads() async {
+    final process = [
+      if (config.platform.availableOnAndroid)
+        () => AndroidUploadService(
+          config,
+        ).upload(config.appDistributionConfig?.accountConfig.androidId),
+      if (config.platform.availableOnIos)
+        () => IosUploadService(
+          config,
+        ).upload(config.appDistributionConfig?.accountConfig.iosId),
+    ];
+    if (config.useParallelUpload) {
+      final futures = await Future.wait(process.map((p) => p()));
+      if (futures.contains(false)) {
+        return false;
+      }
+    } else {
+      for (final p in process) {
+        final isSuccess = await p();
+        if (!isSuccess) return false;
+      }
+    }
+    return true;
   }
 
   void showProjectDetails(AppDetail appDetail) {
@@ -99,6 +143,47 @@ class UploaderManager {
           _formatParameters(config.buildParametersFor(BuildTarget.store)),
         ),
       );
+    }
+
+    final pluginStubs = config.pluginStubs;
+    final strippedPlatforms = pluginStubs.strippedPlatforms;
+    if (strippedPlatforms.isNotEmpty || pluginStubs.auto) {
+      info.writeln();
+      info.writeln("---- Plugin Stubs ----");
+      for (final entry in strippedPlatforms.entries) {
+        info.writeln(_formatField(entry.key, entry.value.value));
+      }
+      if (pluginStubs.auto) {
+        info.writeln(
+          _formatField("Auto", "every plugin the analysis finds unused"),
+        );
+        if (pluginStubs.keep.isNotEmpty) {
+          info.writeln(_formatField("Keep", pluginStubs.keep.join(", ")));
+        }
+      }
+      info.writeln(
+        _formatField(
+          "Verified",
+          config.verifyPluginStubs || pluginStubs.auto
+              ? "by a code size analysis build"
+              : "no (verifyPluginStubs: false)",
+        ),
+      );
+    }
+
+    final prunedAssets = config.pluginStubs.prunedAssets;
+    if (prunedAssets.isNotEmpty) {
+      info.writeln();
+      info.writeln("---- Pruned Assets ----");
+      for (final entry in prunedAssets.entries) {
+        info.writeln(_formatField(entry.key, entry.value.join(", ")));
+      }
+    }
+
+    final allowedPluginsPath = config.allowedPluginsPath;
+    if (allowedPluginsPath != null) {
+      info.writeln();
+      info.writeln(_formatField("Allowed Plugins", allowedPluginsPath));
     }
 
     if (uploadType.availableOnAppDistribution) {
