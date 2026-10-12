@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/plugin_stub_helper.dart';
@@ -198,19 +199,21 @@ class PluginStubService {
       );
       if (root == null) {
         return Printer.error(
-          "[stubs] $name is listed in pluginStubs or prunedAssets but is not "
-          "a dependency of this app",
+          "[stubs] $name is listed in pluginStubs, prunedAssets or prunedFonts "
+          "but is not a dependency of this app",
         );
       }
 
       final strippedPlatform = strippedPlatforms[name];
       final assetPatterns = config.prunedAssets[name] ?? const [];
+      final fontFamilies = config.prunedFonts[name] ?? const [];
       final plan = helper.planStub(
         name: name,
         pubspec: loadYaml(File("$root/pubspec.yaml").readAsStringSync()),
         strippedPlatform: strippedPlatform,
         packageRoot: root,
         assetPatterns: assetPatterns,
+        fontFamilies: fontFamilies,
       );
       if (strippedPlatform != null && !plan.removesNativeCode) {
         Printer.warning(
@@ -222,6 +225,13 @@ class PluginStubService {
         Printer.warning(
           "[stubs] prunedAssets of $name matched none of the assets it "
           "declares: ${assetPatterns.join(", ")}",
+        );
+      }
+      final undeclaredFonts = fontFamilies.whereNot(plan.prunedFonts.contains);
+      if (undeclaredFonts.isNotEmpty) {
+        Printer.warning(
+          "[stubs] prunedFonts of $name lists families it does not declare: "
+          "${undeclaredFonts.join(", ")}",
         );
       }
       if (!plan.changesPackage) continue;
@@ -319,6 +329,9 @@ class PluginStubService {
       if (plan.prunedAssets.isNotEmpty)
         "${plan.prunedAssets.length} assets "
             "(${StringUtils.formatBytes(plan.prunedAssetBytes)})",
+      if (plan.prunedFonts.isNotEmpty)
+        "fonts ${plan.prunedFonts.join(", ")} "
+            "(${StringUtils.formatBytes(plan.prunedFontBytes)})",
     ];
     return "${plan.name}: ${changes.join(", ")}";
   }
@@ -344,6 +357,8 @@ class PluginStubService {
         "${entry.key} (${entry.value.value})",
       for (final entry in config.prunedAssets.entries)
         "${entry.key} assets: ${entry.value.join(", ")}",
+      for (final entry in config.prunedFonts.entries)
+        "${entry.key} fonts: ${entry.value.join(", ")}",
     ].join("\n");
     Printer.info(
       "[stubs] DRY RUN: these plugins would be stubbed through "

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:glob/glob.dart';
 import 'package:uploader/src/enum/enums.dart';
 
@@ -18,7 +19,7 @@ const String pluginStubOverridesMarker =
 class PluginStubPlan {
   final String name;
 
-  /// Null when only the package's assets are pruned.
+  /// Null when only the package's assets or fonts are pruned.
   final AppPlatform? strippedPlatform;
 
   /// The stub's pubspec, as plain maps and lists ready to be encoded.
@@ -38,6 +39,12 @@ class PluginStubPlan {
   /// What [prunedAssets] and their resolution variants weigh on disk.
   final int prunedAssetBytes;
 
+  /// Font families the stub no longer declares.
+  final List<String> prunedFonts;
+
+  /// What the files of [prunedFonts] weigh on disk.
+  final int prunedFontBytes;
+
   const PluginStubPlan({
     required this.name,
     required this.strippedPlatform,
@@ -46,9 +53,12 @@ class PluginStubPlan {
     required this.removesNativeCode,
     this.prunedAssets = const [],
     this.prunedAssetBytes = 0,
+    this.prunedFonts = const [],
+    this.prunedFontBytes = 0,
   });
 
-  bool get changesPackage => removesNativeCode || prunedAssets.isNotEmpty;
+  bool get changesPackage =>
+      removesNativeCode || prunedAssets.isNotEmpty || prunedFonts.isNotEmpty;
 
   List<String> get strippedPlatformKeys => switch (strippedPlatform) {
     AppPlatform.all => builtPlatformKeys,
@@ -88,15 +98,17 @@ class PluginStubHelper {
   ///
   /// The Dart API is untouched; only the plugin declaration for
   /// [strippedPlatform] goes, together with the federated implementations it
-  /// pointed to, and the asset files matching [assetPatterns]. [packageRoot]
-  /// is where the original package lives, so its relative `path:`
-  /// dependencies and its asset folders can still be found from the copy.
+  /// pointed to, the asset files matching [assetPatterns] and the font
+  /// families in [fontFamilies]. [packageRoot] is where the original package
+  /// lives, so its relative `path:` dependencies and its asset folders can
+  /// still be found from the copy.
   PluginStubPlan planStub({
     required String name,
     required Map<dynamic, dynamic> pubspec,
     required AppPlatform? strippedPlatform,
     required String packageRoot,
     List<String> assetPatterns = const [],
+    List<String> fontFamilies = const [],
   }) {
     final stub = _plainMap(pubspec);
     final flutter = stub["flutter"];
@@ -159,6 +171,9 @@ class PluginStubHelper {
             packageRoot: packageRoot,
             patterns: assetPatterns.map(Glob.new).toList(),
           );
+    final prunedFonts = fontFamilies.isEmpty
+        ? const <Map<String, dynamic>>[]
+        : _pruneFonts(stub["flutter"], families: fontFamilies.toSet());
 
     _absolutizePathDependencies(stub["dependencies"], packageRoot);
     stub
@@ -178,7 +193,47 @@ class PluginStubHelper {
         0,
         (total, asset) => total + _assetBytes(packageRoot, asset),
       ),
+      prunedFonts: [for (final font in prunedFonts) "${font["family"]}"],
+      prunedFontBytes: prunedFonts.fold(
+        0,
+        (total, font) => total + _fontBytes(packageRoot, font),
+      ),
     );
+  }
+
+  /// Rewrites the `fonts` list of [flutter] without the [families] and
+  /// returns the entries it removed.
+  List<Map<String, dynamic>> _pruneFonts(
+    dynamic flutter, {
+    required Set<String> families,
+  }) {
+    final fonts = flutter is Map<String, dynamic> ? flutter["fonts"] : null;
+    if (fonts is! List) return const [];
+
+    bool isPruned(dynamic entry) =>
+        entry is Map<String, dynamic> && families.contains(entry["family"]);
+
+    final pruned = fonts.where(isPruned).cast<Map<String, dynamic>>().toList();
+    final kept = fonts.whereNot(isPruned).toList();
+    if (kept.isEmpty) {
+      (flutter as Map).remove("fonts");
+    } else {
+      (flutter as Map)["fonts"] = kept;
+    }
+    return pruned;
+  }
+
+  int _fontBytes(String packageRoot, Map<String, dynamic> family) {
+    final fonts = family["fonts"];
+    if (fonts is! List) return 0;
+
+    return fonts
+        .whereType<Map>()
+        .map((font) => font["asset"])
+        .whereType<String>()
+        .map((asset) => File("$packageRoot/$asset"))
+        .where((file) => file.existsSync())
+        .fold(0, (total, file) => total + file.lengthSync());
   }
 
   /// Rewrites the `assets` list of [flutter] without the files matching

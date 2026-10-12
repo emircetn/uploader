@@ -158,6 +158,7 @@ class PubspecParameters {
       pluginStubs: _parsePluginStubs(
         uploaderMap?[PubspecKeys.pluginStubs],
         prunedAssets: uploaderMap?[PubspecKeys.prunedAssets],
+        prunedFonts: uploaderMap?[PubspecKeys.prunedFonts],
       ),
       allowedPluginsPath: uploaderMap?[PubspecKeys.allowedPluginsPath],
       verifyPluginStubs: uploaderMap?[PubspecKeys.verifyPluginStubs] ?? true,
@@ -167,21 +168,27 @@ class PubspecParameters {
   static PluginStubConfig _parsePluginStubs(
     Map<dynamic, dynamic>? map, {
     Map<dynamic, dynamic>? prunedAssets,
+    Map<dynamic, dynamic>? prunedFonts,
   }) {
     return PluginStubConfig(
       all: _parseIterableToList<String>(map?[PubspecKeys.all]) ?? const [],
       ios: _parseIterableToList<String>(map?[PubspecKeys.ios]) ?? const [],
       android:
           _parseIterableToList<String>(map?[PubspecKeys.android]) ?? const [],
-      prunedAssets: {
-        for (final entry in (prunedAssets ?? const {}).entries)
-          if (entry.value is Iterable)
-            "${entry.key}": _parseIterableToList<String>(entry.value)!,
-      },
+      prunedAssets: _parseListsByPackage(prunedAssets),
+      prunedFonts: _parseListsByPackage(prunedFonts),
       auto: map?[PubspecKeys.auto] ?? false,
       keep: _parseIterableToList<String>(map?[PubspecKeys.keep]) ?? const [],
     );
   }
+
+  static Map<String, List<String>> _parseListsByPackage(
+    Map<dynamic, dynamic>? map,
+  ) => {
+    for (final entry in (map ?? const {}).entries)
+      if (entry.value is Iterable)
+        "${entry.key}": _parseIterableToList<String>(entry.value)!,
+  };
 
   static List<T>? _parseIterableToList<T>(Iterable<dynamic>? elements) {
     return elements == null ? null : List<T>.from(elements);

@@ -386,6 +386,85 @@ flutter:
       expect(config.isEmpty, isFalse);
       expect(config.packageNames, {"a", "b"});
     });
+
+    test('pruned fonts alone make the config non-empty', () {
+      const config = PluginStubConfig(
+        prunedFonts: {
+          "iconsax": ["iconsax"],
+        },
+      );
+
+      expect(config.isEmpty, isFalse);
+      expect(config.packageNames, {"iconsax"});
+    });
+  });
+
+  group('pruned fonts', () {
+    late Directory packageRoot;
+
+    setUp(() {
+      packageRoot = Directory.systemTemp.createTempSync("pruned_fonts_test");
+      for (final MapEntry(key: font, value: bytes) in {
+        "lib/fonts/Thin.ttf": 400,
+        "lib/fonts/Light.ttf": 300,
+        "lib/fonts/Regular.ttf": 200,
+      }.entries) {
+        File("${packageRoot.path}/$font")
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(List.filled(bytes, 0));
+      }
+    });
+
+    tearDown(() => packageRoot.deleteSync(recursive: true));
+
+    PluginStubPlan pruning(List<String> families) => helper.planStub(
+      name: "icons",
+      pubspec: {
+        "name": "icons",
+        "flutter": {
+          "fonts": [
+            for (final family in ["Thin", "Light", "Regular"])
+              {
+                "family": "Icons$family",
+                "fonts": [
+                  {"asset": "lib/fonts/$family.ttf", "weight": 400},
+                ],
+              },
+          ],
+        },
+      },
+      strippedPlatform: null,
+      packageRoot: packageRoot.path,
+      fontFamilies: families,
+    );
+
+    test('the listed families leave the fonts list with their files', () {
+      final plan = pruning(["IconsThin", "IconsLight"]);
+
+      expect(
+        (plan.pubspec["flutter"]["fonts"] as List).map(
+          (font) => font["family"],
+        ),
+        ["IconsRegular"],
+      );
+      expect(plan.prunedFonts, ["IconsThin", "IconsLight"]);
+      expect(plan.prunedFontBytes, 700);
+      expect(plan.changesPackage, isTrue);
+    });
+
+    test('pruning every family leaves no fonts list', () {
+      final plan = pruning(["IconsThin", "IconsLight", "IconsRegular"]);
+
+      expect(plan.pubspec["flutter"].containsKey("fonts"), isFalse);
+    });
+
+    test('families the package does not declare change nothing', () {
+      final plan = pruning(["CupertinoIcons"]);
+
+      expect(plan.pubspec["flutter"]["fonts"], hasLength(3));
+      expect(plan.prunedFonts, isEmpty);
+      expect(plan.changesPackage, isFalse);
+    });
   });
 
   group('pruned assets', () {

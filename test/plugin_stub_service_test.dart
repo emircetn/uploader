@@ -302,6 +302,43 @@ flutter:
     await service.restore();
   });
 
+  test('pruned fonts get a copy without the listed families', () async {
+    File("$cachedFooRoot/pubspec.yaml").writeAsStringSync(
+      "${File("$cachedFooRoot/pubspec.yaml").readAsStringSync()}"
+      "  fonts:\n"
+      "    - family: FooThin\n"
+      "      fonts:\n"
+      "        - asset: fonts/thin.ttf\n"
+      "    - family: FooRegular\n"
+      "      fonts:\n"
+      "        - asset: fonts/regular.ttf\n",
+    );
+    final service = PluginStubService(
+      config: const PluginStubConfig(
+        prunedFonts: {
+          "foo": ["FooThin"],
+        },
+      ),
+      processService: fakeProcess(),
+      projectRoot: projectRoot,
+    );
+
+    expect(await service.apply(), isTrue);
+
+    final stubPubspec = loadYaml(
+      projectFile(
+        "build/uploader/plugin_stubs/foo/pubspec.yaml",
+      ).readAsStringSync(),
+    );
+    expect(
+      (stubPubspec["flutter"]["fonts"] as List).map((font) => font["family"]),
+      ["FooRegular"],
+    );
+    expect(service.appliedPlans.single.prunedFonts, ["FooThin"]);
+
+    await service.restore();
+  });
+
   test('an automatic stub is applied like a configured one', () async {
     final service = PluginStubService(
       config: const PluginStubConfig(auto: true),

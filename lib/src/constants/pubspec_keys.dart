@@ -35,6 +35,7 @@ class PubspecKeys {
   static const String auto = 'auto';
   static const String keep = 'keep';
   static const String prunedAssets = 'prunedAssets';
+  static const String prunedFonts = 'prunedFonts';
   static const String allowedPluginsPath = 'allowedPluginsPath';
   static const String verifyPluginStubs = 'verifyPluginStubs';
 }

@@ -184,6 +184,9 @@ uploader:
   prunedAssets: # glob patterns, relative to each package's root
     appnation_purchases:
       - assets/videos/**
+  prunedFonts: # font families each package declares
+    phosphor_flutter:
+      - PhosphorThin
   allowedPluginsPath: tool/allowed_plugins.yaml
   verifyPluginStubs: true # default: true
 ```
@@ -266,6 +269,17 @@ bundles them on either platform. A folder entry is replaced by the files it
 keeps, and the pruned files lose their `2.0x`/`3.0x` variants too. A pruned
 asset that is loaded anyway fails as any missing asset does, so prune only what
 the app never shows. Patterns that match nothing are reported.
+
+### Pruned fonts
+
+`prunedFonts` drops whole font families from a package's `flutter: fonts`
+through the same copy, so their files are not bundled on either platform. It
+covers what `--no-tree-shake-icons` keeps and what icon tree shaking never
+touches: a family no constant `IconData` refers to is bundled in full, used or
+not. A glyph of a pruned family renders as an empty box instead of failing, so
+check that nothing reaches the family first, for example that its icon class
+is missing from the `--analyze-size` output. Families a package does not
+declare are reported.
 
 ### Allowed plugins
 

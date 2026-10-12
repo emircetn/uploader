@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:uploader/src/helper/code_size_helper.dart';
 import 'package:uploader/src/util/string_utils.dart';
+import 'package:yaml/yaml.dart';
 
 enum PluginReach {
   live(label: "live"),
@@ -99,10 +100,18 @@ class PluginAuditHelper {
     return entries..sort(_byReachThenSize);
   }
 
-  /// The unused plugins nothing else unused depends on. Stubbing those drops
-  /// the federated implementations below them as well.
+  /// The unused plugins of [platformKey], leaving out the federated
+  /// implementations that stubbing their app-facing plugin drops anyway.
+  ///
+  /// A stub only drops the `default_package` of the platforms it strips, so
+  /// an implementation is left out only when every plugin depending on it is
+  /// unused and names it as its [platformKey] `default_package`. Any other
+  /// dependency stays in the graph and stays registered unless it is stubbed
+  /// itself.
   List<String> suggestedStubs({
+    required String platformKey,
     required List<PluginAuditEntry> entries,
+    required List<Map<dynamic, dynamic>> plugins,
     required List<Map<dynamic, dynamic>> dependencyGraph,
   }) {
     final dependencies = _dependenciesByPlugin(dependencyGraph);
@@ -110,11 +119,29 @@ class PluginAuditHelper {
         .where((entry) => entry.reach == PluginReach.unused)
         .map((entry) => entry.name)
         .toSet();
-    final pulledInByUnused = {
-      for (final name in unused) ...?dependencies[name],
+    final paths = {
+      for (final plugin in plugins) "${plugin["name"]}": plugin["path"],
     };
-    return unused.where((name) => !pulledInByUnused.contains(name)).toList()
-      ..sort();
+    final defaultPackages = {
+      for (final name in unused)
+        name: _defaultPackageOf(paths[name], platformKey: platformKey),
+    };
+
+    bool droppedWithItsPlugin(String name) {
+      final dependents = [
+        for (final MapEntry(key: dependent, value: names)
+            in dependencies.entries)
+          if (names.contains(name)) dependent,
+      ];
+      return dependents.isNotEmpty &&
+          dependents.every(
+            (dependent) =>
+                unused.contains(dependent) &&
+                defaultPackages[dependent] == name,
+          );
+    }
+
+    return unused.where((name) => !droppedWithItsPlugin(name)).toList()..sort();
   }
 
   /// [stubsAutomatically] tells the report the suggestions are being stubbed
@@ -187,6 +214,23 @@ class PluginAuditHelper {
         .whereType<File>()
         .where((file) => file.path.endsWith(".dart"))
         .any((file) => _dartEntryPoint.hasMatch(file.readAsStringSync()));
+  }
+
+  String? _defaultPackageOf(
+    dynamic packageRoot, {
+    required String platformKey,
+  }) {
+    if (packageRoot is! String) return null;
+    final pubspec = File("$packageRoot/pubspec.yaml");
+    if (!pubspec.existsSync()) return null;
+
+    dynamic value = loadYaml(pubspec.readAsStringSync());
+    for (final key in ["flutter", "plugin", "platforms", platformKey]) {
+      if (value is! Map) return null;
+      value = value[key];
+    }
+    final defaultPackage = value is Map ? value["default_package"] : null;
+    return defaultPackage is String ? defaultPackage : null;
   }
 
   Map<String, List<String>> _dependenciesByPlugin(

@@ -342,7 +342,12 @@ class PluginGuardService {
 
     final configured = config.pluginStubs.strippedPlatforms.keys.toSet();
     final unused = auditHelper
-        .suggestedStubs(entries: entries, dependencyGraph: dependencyGraph)
+        .suggestedStubs(
+          platformKey: platformKey,
+          entries: entries,
+          plugins: plugins,
+          dependencyGraph: dependencyGraph,
+        )
         .where((name) => !configured.contains(name))
         .toList();
     Printer.info(

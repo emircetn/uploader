@@ -9,13 +9,24 @@ void main() {
   late Directory cache;
 
   /// A plugin package whose lib/ holds [dart], or no lib/ at all when null.
-  Map<String, dynamic> plugin(String name, {String? dart}) {
+  /// [iosDefault] is the federated implementation it names for iOS.
+  Map<String, dynamic> plugin(String name, {String? dart, String? iosDefault}) {
     final root = "${cache.path}/$name";
     Directory(root).createSync(recursive: true);
     if (dart != null) {
       File("$root/lib/$name.dart")
         ..createSync(recursive: true)
         ..writeAsStringSync(dart);
+    }
+    if (iosDefault != null) {
+      File("$root/pubspec.yaml").writeAsStringSync(
+        "name: $name\n"
+        "flutter:\n"
+        "  plugin:\n"
+        "    platforms:\n"
+        "      ios:\n"
+        "        default_package: $iosDefault\n",
+      );
     }
     return {"name": name, "path": root};
   }
@@ -91,15 +102,16 @@ void main() {
           "dependencies": ["unused_helper"],
         },
       ];
+      final plugins = [
+        plugin("google_mobile_ads", dart: channelPlugin),
+        plugin("webview_flutter_wkwebview", dart: channelPlugin),
+        plugin("workmanager", dart: channelPlugin),
+        plugin("firebase_messaging", dart: channelPlugin),
+        plugin("unused_helper", dart: channelPlugin),
+        plugin("dead", dart: channelPlugin),
+      ];
       final entries = helper.audit(
-        plugins: [
-          plugin("google_mobile_ads", dart: channelPlugin),
-          plugin("webview_flutter_wkwebview", dart: channelPlugin),
-          plugin("workmanager", dart: channelPlugin),
-          plugin("firebase_messaging", dart: channelPlugin),
-          plugin("unused_helper", dart: channelPlugin),
-          plugin("dead", dart: channelPlugin),
-        ],
+        plugins: plugins,
         dependencyGraph: graph,
         code: const {},
         usedByApp: {"google_mobile_ads"},
@@ -113,9 +125,15 @@ void main() {
       );
       expect(reachOf(entries, "workmanager"), PluginReach.kept);
       expect(reachOf(entries, "unused_helper"), PluginReach.usedByKeptPlugin);
-      expect(helper.suggestedStubs(entries: entries, dependencyGraph: graph), [
-        "dead",
-      ]);
+      expect(
+        helper.suggestedStubs(
+          platformKey: "ios",
+          entries: entries,
+          plugins: plugins,
+          dependencyGraph: graph,
+        ),
+        ["dead"],
+      );
     },
   );
 
@@ -136,20 +154,108 @@ void main() {
         "dependencies": ["google_sign_in_ios", "google_sign_in_android"],
       },
     ];
+    final plugins = [
+      plugin(
+        "google_sign_in",
+        dart: channelPlugin,
+        iosDefault: "google_sign_in_ios",
+      ),
+      plugin("google_sign_in_ios", dart: channelPlugin),
+      plugin("workmanager", dart: channelPlugin),
+    ];
     final entries = helper.audit(
-      plugins: [
-        plugin("google_sign_in", dart: channelPlugin),
-        plugin("google_sign_in_ios", dart: channelPlugin),
-        plugin("workmanager", dart: channelPlugin),
-      ],
+      plugins: plugins,
       dependencyGraph: graph,
       code: const {},
     );
 
-    expect(helper.suggestedStubs(entries: entries, dependencyGraph: graph), [
-      "google_sign_in",
-      "workmanager",
-    ]);
+    expect(
+      helper.suggestedStubs(
+        platformKey: "ios",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      ["google_sign_in", "workmanager"],
+    );
+  });
+
+  test('a plain dependency of an unused plugin is suggested too, since '
+      'stubbing the plugin leaves it in the graph', () {
+    final graph = [
+      {
+        "name": "just_audio",
+        "dependencies": ["audio_session"],
+      },
+      {
+        "name": "live_activities",
+        "dependencies": ["flutter_app_group_directory"],
+      },
+    ];
+    final plugins = [
+      plugin("just_audio", dart: channelPlugin),
+      plugin("audio_session", dart: channelPlugin),
+      plugin("live_activities", dart: channelPlugin),
+      plugin("flutter_app_group_directory", dart: channelPlugin),
+    ];
+    final entries = helper.audit(
+      plugins: plugins,
+      dependencyGraph: graph,
+      code: const {},
+    );
+
+    expect(
+      helper.suggestedStubs(
+        platformKey: "ios",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      [
+        "audio_session",
+        "flutter_app_group_directory",
+        "just_audio",
+        "live_activities",
+      ],
+    );
+  });
+
+  test('an implementation another unused plugin depends on directly is '
+      'suggested, since that plugin keeps it in the graph', () {
+    final graph = [
+      {
+        "name": "google_sign_in",
+        "dependencies": ["google_sign_in_ios"],
+      },
+      {
+        "name": "sign_in_helper",
+        "dependencies": ["google_sign_in_ios"],
+      },
+    ];
+    final plugins = [
+      plugin(
+        "google_sign_in",
+        dart: channelPlugin,
+        iosDefault: "google_sign_in_ios",
+      ),
+      plugin("google_sign_in_ios", dart: channelPlugin),
+      plugin("sign_in_helper", dart: channelPlugin),
+    ];
+    final entries = helper.audit(
+      plugins: plugins,
+      dependencyGraph: graph,
+      code: const {},
+    );
+
+    expect(
+      helper.suggestedStubs(
+        platformKey: "ios",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      ["google_sign_in", "google_sign_in_ios", "sign_in_helper"],
+    );
   });
 
   test('the report lists live plugins first, the largest on top', () {

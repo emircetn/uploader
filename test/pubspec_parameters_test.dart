@@ -205,6 +205,20 @@ uploader:
       expect(params.pluginStubs.isEmpty, isFalse);
     });
 
+    test('pruned fonts are read per package', () {
+      final params = parse('''
+uploader:
+  prunedFonts:
+    phosphor_flutter:
+      - PhosphorThin
+''');
+
+      expect(params.pluginStubs.prunedFonts, {
+        "phosphor_flutter": ["PhosphorThin"],
+      });
+      expect(params.pluginStubs.isEmpty, isFalse);
+    });
+
     test('stubs are verified and plugins unchecked by default', () {
       final params = parse('uploader:\n  platform: all\n');
 

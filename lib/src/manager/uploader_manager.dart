@@ -180,6 +180,15 @@ class UploaderManager {
       }
     }
 
+    final prunedFonts = config.pluginStubs.prunedFonts;
+    if (prunedFonts.isNotEmpty) {
+      info.writeln();
+      info.writeln("---- Pruned Fonts ----");
+      for (final entry in prunedFonts.entries) {
+        info.writeln(_formatField(entry.key, entry.value.join(", ")));
+      }
+    }
+
     final allowedPluginsPath = config.allowedPluginsPath;
     if (allowedPluginsPath != null) {
       info.writeln();
