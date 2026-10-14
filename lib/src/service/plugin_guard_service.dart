@@ -47,6 +47,7 @@ class PluginGuardService {
   final auditHelper = PluginAuditHelper();
   final codeSizeHelper = CodeSizeHelper();
   final nativeImportHelper = NativeImportHelper();
+  final stubHelper = PluginStubHelper();
 
   bool _hasResolved = false;
 
@@ -92,6 +93,7 @@ class PluginGuardService {
         return null;
       }
       _hasResolved = true;
+      if (!_checkConfiguredPackages()) return null;
     }
 
     final pluginsDependencies = _readJson(
@@ -124,6 +126,35 @@ class PluginGuardService {
       autoStubs: _stubsAutomatically
           ? _autoStubsFrom(unusedByPlatform)
           : const {},
+    );
+  }
+
+  /// A package the config names but the app does not depend on would only
+  /// stop the run once the stubs are applied, after the analysis builds.
+  bool _checkConfiguredPackages() {
+    final packageConfig = _readJson(PathConstants.packageConfigRelativePath);
+    if (packageConfig == null) return true;
+
+    final packageConfigUri = _file(
+      PathConstants.packageConfigRelativePath,
+    ).absolute.uri;
+    final missing = config.pluginStubs.packageNames
+        .where(
+          (name) =>
+              stubHelper.packageRoot(
+                packageConfig: packageConfig,
+                packageConfigUri: packageConfigUri,
+                name: name,
+              ) ==
+              null,
+        )
+        .toList();
+    if (missing.isEmpty) return true;
+
+    return Printer.error(
+      "[guard] these packages are listed in pluginStubs, prunedAssets or "
+      "prunedFonts but are not dependencies of this app: "
+      "${missing.join(", ")}. Check their names in pubspec.lock",
     );
   }
 
