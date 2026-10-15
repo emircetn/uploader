@@ -298,6 +298,142 @@ void main() {
     );
   });
 
+  test('a mediation adapter of a live ads plugin stays, and so does what '
+      'the adapter depends on', () {
+    final graph = [
+      {
+        "name": "gma_mediation_applovin",
+        "dependencies": ["google_mobile_ads", "applovin_helper"],
+      },
+      {
+        "name": "gma_mediation_unity",
+        "dependencies": ["gma_mediation_applovin"],
+      },
+      {
+        "name": "google_mobile_ads",
+        "dependencies": ["webview_flutter_android"],
+      },
+    ];
+    final plugins = [
+      plugin("google_mobile_ads", dart: channelPlugin),
+      plugin("webview_flutter_android", dart: channelPlugin),
+      plugin("gma_mediation_applovin", dart: channelPlugin),
+      plugin("gma_mediation_unity", dart: channelPlugin),
+      plugin("applovin_helper", dart: channelPlugin),
+      plugin("dead", dart: channelPlugin),
+    ];
+    final entries = helper.audit(
+      plugins: plugins,
+      dependencyGraph: graph,
+      code: const {"google_mobile_ads": reachable},
+    );
+
+    expect(
+      reachOf(entries, "gma_mediation_applovin"),
+      PluginReach.extendsKeptPlugin,
+    );
+    expect(
+      reachOf(entries, "gma_mediation_unity"),
+      PluginReach.extendsKeptPlugin,
+    );
+    expect(reachOf(entries, "applovin_helper"), PluginReach.usedByKeptPlugin);
+    expect(
+      reachOf(entries, "webview_flutter_android"),
+      PluginReach.usedByKeptPlugin,
+    );
+    expect(
+      helper.suggestedStubs(
+        platformKey: "android",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      ["dead"],
+    );
+  });
+
+  test('a plugin that both a staying plugin needs and that extends one still '
+      'protects what extends it', () {
+    final graph = [
+      {
+        "name": "ads_wrapper",
+        "dependencies": ["mediation_core"],
+      },
+      {
+        "name": "mediation_core",
+        "dependencies": ["google_mobile_ads"],
+      },
+      {
+        "name": "mediation_adapter",
+        "dependencies": ["mediation_core"],
+      },
+    ];
+    final entries = helper.audit(
+      plugins: [
+        plugin("ads_wrapper", dart: channelPlugin),
+        plugin("mediation_core", dart: channelPlugin),
+        plugin("google_mobile_ads", dart: channelPlugin),
+        plugin("mediation_adapter", dart: channelPlugin),
+      ],
+      dependencyGraph: graph,
+      code: const {"ads_wrapper": reachable, "google_mobile_ads": reachable},
+    );
+
+    expect(reachOf(entries, "mediation_core"), PluginReach.extendsKeptPlugin);
+    expect(
+      reachOf(entries, "mediation_adapter"),
+      PluginReach.extendsKeptPlugin,
+    );
+  });
+
+  test('a shared native library or a plugin kept for a dependent protects '
+      'nothing that depends on it', () {
+    final graph = [
+      {
+        "name": "image_picker_android",
+        "dependencies": ["flutter_plugin_android_lifecycle"],
+      },
+      {
+        "name": "google_mobile_ads",
+        "dependencies": ["webview_flutter_android"],
+      },
+      {
+        "name": "webview_flutter",
+        "dependencies": ["webview_flutter_android"],
+      },
+    ];
+    final plugins = [
+      plugin("flutter_plugin_android_lifecycle"),
+      plugin("image_picker_android", dart: channelPlugin),
+      plugin("google_mobile_ads", dart: channelPlugin),
+      plugin("webview_flutter_android", dart: channelPlugin),
+      plugin("webview_flutter", dart: channelPlugin),
+    ];
+    final entries = helper.audit(
+      plugins: plugins,
+      dependencyGraph: graph,
+      code: const {"google_mobile_ads": reachable},
+    );
+
+    expect(
+      reachOf(entries, "flutter_plugin_android_lifecycle"),
+      PluginReach.nativeOnly,
+    );
+    expect(
+      reachOf(entries, "webview_flutter_android"),
+      PluginReach.usedByKeptPlugin,
+    );
+    expect(
+      helper.suggestedStubs(
+        platformKey: "android",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      ["image_picker_android", "webview_flutter"],
+    );
+  });
+
   test('the report lists live plugins first, the largest on top', () {
     final entries = helper.audit(
       plugins: [

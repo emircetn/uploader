@@ -247,10 +247,11 @@ project is left as it was found.
 ```
 [audit] 41 plugins registered on ios
   url_launcher_ios                             6.9 KB  live
-  google_sign_in_ios                            523 B  unused
+  google_sign_in_ios                            523 B  unused: no Dart code reaches it
   google_mobile_ads                                    the app's native code imports it
   media_kit_libs_ios_video                             native only, check by hand
   audio_session                                        a plugin that stays depends on it
+  gma_mediation_applovin                               depends on a plugin that stays, which may load it
   firebase_messaging                           2.1 KB  runs at startup, never stubbed
 [audit] can be stubbed on ios: google_sign_in_ios, workmanager
 ```
@@ -264,6 +265,12 @@ Everything else stays:
 - packages with no Dart entry point, whose native library is loaded by another
   package (`media_kit_libs_*`); list them by hand once you know they are unused
 - every plugin a plugin that stays depends on, since it may link its native code
+- every plugin that depends on a plugin that is live, imported by the app's
+  native code, kept or run at startup, since that plugin's native SDK may load
+  it by class name: Google Mobile Ads loads its mediation adapters
+  (`gma_mediation_*`) that way, and the app never calls their Dart API. A
+  native only package or a plugin kept only for a dependent loads nothing, so
+  depending on `flutter_plugin_android_lifecycle` protects no plugin
 - SDKs that work at startup without being called: `firebase_*`,
   `facebook_app_events`, `appsflyer_sdk`, `adapty_flutter`, `newrelic_mobile`
 
@@ -275,10 +282,13 @@ top of the ones listed by hand. A plugin unused on both platforms is stubbed on
 both. A plugin listed by hand keeps the platforms it is listed for.
 
 The analysis only sees Dart. A plugin the app reaches only through native code
-the scan cannot see, such as an SDK the app imports by its own module name
-(`import GoogleMobileAds` rather than `import google_mobile_ads`) or code
-loaded by reflection, goes in `keep`. Smoke test the app after turning `auto`
-on, and again when the stubbed list in the run output changes.
+the scan cannot see goes in `keep`: an SDK the app imports by its own module
+name (`import GoogleMobileAds` rather than `import google_mobile_ads`), or one
+started or loaded by class name natively without depending on a plugin that
+stays, such as an ad network adapter wired up only in native code. A stubbed
+SDK of that kind fails silently, an ad network that never fills for example,
+so smoke test the app after turning `auto` on, and again when the stubbed list
+in the run output changes.
 
 ### Pruned assets
 

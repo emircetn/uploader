@@ -7,10 +7,11 @@ import 'package:yaml/yaml.dart';
 
 enum PluginReach {
   live(label: "live"),
-  unused(label: "unused"),
+  unused(label: "unused: no Dart code reaches it"),
   usedByApp(label: "the app's native code imports it"),
   nativeOnly(label: "native only, check by hand"),
   usedByKeptPlugin(label: "a plugin that stays depends on it"),
+  extendsKeptPlugin(label: "depends on a plugin that stays, which may load it"),
   startupSideEffects(label: "runs at startup, never stubbed"),
   kept(label: "kept by pluginStubs.keep");
 
@@ -42,8 +43,9 @@ class PluginAuditEntry {
 /// for plugins that are reached from Dart at all, which is why only plugins
 /// found [PluginReach.unused] may be stubbed: packages without a Dart entry
 /// point have their native code loaded by another package, the app's native
-/// code may call a plugin directly, SDKs may do their work at startup, and
-/// every plugin that stays may link the native code of those it depends on.
+/// code may call a plugin directly, SDKs may do their work at startup, every
+/// plugin that stays may link the native code of those it depends on, and a
+/// plugin depending on one that is used or kept may be loaded by it natively.
 class PluginAuditHelper {
   static const _startupSideEffectPlugins = [
     "firebase_",
@@ -80,25 +82,68 @@ class PluginAuditHelper {
         ),
     };
 
-    final dependencies = _dependenciesByPlugin(dependencyGraph);
-    final neededByKeptPlugins = {
-      for (final entry in reaches.entries)
-        if (entry.value != PluginReach.unused)
-          ..._transitiveDependencies(entry.key, dependencies),
-    };
+    _protectAroundStayingPlugins(
+      reaches,
+      dependencies: _dependenciesByPlugin(dependencyGraph),
+    );
 
     final entries = [
       for (final MapEntry(key: name, value: reach) in reaches.entries)
-        _entryFor(
-          name,
-          reach:
-              reach == PluginReach.unused && neededByKeptPlugins.contains(name)
-              ? PluginReach.usedByKeptPlugin
-              : reach,
-          code: code,
-        ),
+        _entryFor(name, reach: reach, code: code),
     ];
     return entries..sort(_byReachThenSize);
+  }
+
+  static const _possibleLoaders = {
+    PluginReach.live,
+    PluginReach.usedByApp,
+    PluginReach.startupSideEffects,
+    PluginReach.kept,
+    PluginReach.extendsKeptPlugin,
+  };
+
+  /// Turns the unused plugins of [reaches] a staying plugin needs into
+  /// staying ones, until nothing changes: what a staying plugin depends on,
+  /// since it may link that native code, and what depends on a plugin that is
+  /// used or kept for itself, since that plugin's native SDK may load it by
+  /// class name the way Google Mobile Ads loads its mediation adapters.
+  ///
+  /// Shared native libraries such as `flutter_plugin_android_lifecycle` and
+  /// plugins kept only for a dependent load nothing, so they protect nothing
+  /// that depends on them.
+  void _protectAroundStayingPlugins(
+    Map<String, PluginReach> reaches, {
+    required Map<String, List<String>> dependencies,
+  }) {
+    bool stays(String name) =>
+        reaches[name] != null && reaches[name] != PluginReach.unused;
+    bool mayLoad(String name) => _possibleLoaders.contains(reaches[name]);
+
+    var changed = true;
+    while (changed) {
+      changed = false;
+      final neededByStaying = {
+        for (final name in reaches.keys.where(stays))
+          ..._transitiveDependencies(name, dependencies),
+      };
+      for (final MapEntry(key: name, value: reach)
+          in reaches.entries.toList()) {
+        if (reach != PluginReach.unused &&
+            reach != PluginReach.usedByKeptPlugin) {
+          continue;
+        }
+
+        final protection = (dependencies[name] ?? const []).any(mayLoad)
+            ? PluginReach.extendsKeptPlugin
+            : neededByStaying.contains(name)
+            ? PluginReach.usedByKeptPlugin
+            : reach;
+        if (protection == reach) continue;
+
+        reaches[name] = protection;
+        changed = true;
+      }
+    }
   }
 
   /// The unused plugins of [platformKey], leaving out the federated
