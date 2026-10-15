@@ -175,19 +175,30 @@ class PubspecParameters {
       ios: _parseIterableToList<String>(map?[PubspecKeys.ios]) ?? const [],
       android:
           _parseIterableToList<String>(map?[PubspecKeys.android]) ?? const [],
-      prunedAssets: _parseListsByPackage(prunedAssets),
-      prunedFonts: _parseListsByPackage(prunedFonts),
+      prunedAssets: _parseListsByPackage(
+        prunedAssets,
+        key: PubspecKeys.prunedAssets,
+      ),
+      prunedFonts: _parseListsByPackage(
+        prunedFonts,
+        key: PubspecKeys.prunedFonts,
+      ),
       auto: map?[PubspecKeys.auto] ?? false,
       keep: _parseIterableToList<String>(map?[PubspecKeys.keep]) ?? const [],
     );
   }
 
   static Map<String, List<String>> _parseListsByPackage(
-    Map<dynamic, dynamic>? map,
-  ) => {
-    for (final entry in (map ?? const {}).entries)
-      if (entry.value is Iterable)
-        "${entry.key}": _parseIterableToList<String>(entry.value)!,
+    Map<dynamic, dynamic>? map, {
+    required String key,
+  }) => {
+    for (final MapEntry(key: package, :value) in (map ?? const {}).entries)
+      "$package": switch (value) {
+        Iterable() => _parseIterableToList<String>(value)!,
+        _ => throw FormatException(
+          "uploader.$key.$package must be a list, such as [$value]",
+        ),
+      },
   };
 
   static List<T>? _parseIterableToList<T>(Iterable<dynamic>? elements) {

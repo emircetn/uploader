@@ -10,7 +10,12 @@ void main() {
 
   /// A plugin package whose lib/ holds [dart], or no lib/ at all when null.
   /// [iosDefault] is the federated implementation it names for iOS.
-  Map<String, dynamic> plugin(String name, {String? dart, String? iosDefault}) {
+  Map<String, dynamic> plugin(
+    String name, {
+    String? dart,
+    String? iosDefault,
+    String? androidDefault,
+  }) {
     final root = "${cache.path}/$name";
     Directory(root).createSync(recursive: true);
     if (dart != null) {
@@ -18,14 +23,15 @@ void main() {
         ..createSync(recursive: true)
         ..writeAsStringSync(dart);
     }
-    if (iosDefault != null) {
+    final defaults = {"ios": iosDefault, "android": androidDefault};
+    if (defaults.values.any((value) => value != null)) {
       File("$root/pubspec.yaml").writeAsStringSync(
         "name: $name\n"
         "flutter:\n"
         "  plugin:\n"
         "    platforms:\n"
-        "      ios:\n"
-        "        default_package: $iosDefault\n",
+        "${[for (final MapEntry(:key, :value) in defaults.entries)
+          if (value != null) "      $key:\n        default_package: $value\n"].join()}",
       );
     }
     return {"name": name, "path": root};
@@ -177,6 +183,40 @@ void main() {
         dependencyGraph: graph,
       ),
       ["google_sign_in", "workmanager"],
+    );
+  });
+
+  test('an implementation the other built platform shares is suggested, '
+      'since stubbing its plugin on one platform keeps it in the graph', () {
+    final graph = [
+      {
+        "name": "foo",
+        "dependencies": ["foo_mobile"],
+      },
+    ];
+    final plugins = [
+      plugin(
+        "foo",
+        dart: channelPlugin,
+        iosDefault: "foo_mobile",
+        androidDefault: "foo_mobile",
+      ),
+      plugin("foo_mobile", dart: channelPlugin),
+    ];
+    final entries = helper.audit(
+      plugins: plugins,
+      dependencyGraph: graph,
+      code: const {},
+    );
+
+    expect(
+      helper.suggestedStubs(
+        platformKey: "ios",
+        entries: entries,
+        plugins: plugins,
+        dependencyGraph: graph,
+      ),
+      ["foo", "foo_mobile"],
     );
   });
 

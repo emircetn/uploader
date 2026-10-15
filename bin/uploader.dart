@@ -28,7 +28,8 @@ void main(List<String> arguments) async {
       negatable: false,
       help:
           'Build once per platform for code size analysis and report which '
-          'plugins the Dart code can still reach. Nothing is uploaded.',
+          'plugins the Dart code can still reach. Nothing is stubbed or '
+          'uploaded.',
     )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show this help text.')
     ..addFlag('version', negatable: false, help: 'Print the uploader version.');

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:uploader/src/helper/code_size_helper.dart';
+import 'package:uploader/src/helper/plugin_stub_helper.dart';
 import 'package:uploader/src/util/string_utils.dart';
 import 'package:yaml/yaml.dart';
 
@@ -103,11 +104,11 @@ class PluginAuditHelper {
   /// The unused plugins of [platformKey], leaving out the federated
   /// implementations that stubbing their app-facing plugin drops anyway.
   ///
-  /// A stub only drops the `default_package` of the platforms it strips, so
-  /// an implementation is left out only when every plugin depending on it is
-  /// unused and names it as its [platformKey] `default_package`. Any other
-  /// dependency stays in the graph and stays registered unless it is stubbed
-  /// itself.
+  /// A stub only drops the `default_package` of the platforms it strips, and
+  /// keeps one another built platform still uses, so an implementation is
+  /// left out only when every plugin depending on it is unused and names it
+  /// as its `default_package` on [platformKey] alone. Any other dependency
+  /// stays in the graph and stays registered unless it is stubbed itself.
   List<String> suggestedStubs({
     required String platformKey,
     required List<PluginAuditEntry> entries,
@@ -124,8 +125,21 @@ class PluginAuditHelper {
     };
     final defaultPackages = {
       for (final name in unused)
-        name: _defaultPackageOf(paths[name], platformKey: platformKey),
+        name: {
+          for (final key in builtPlatformKeys)
+            key: _defaultPackageOf(paths[name], platformKey: key),
+        },
     };
+
+    bool dropsOnlyHere(String dependent, String implementation) {
+      final defaults = defaultPackages[dependent];
+      if (defaults == null || defaults[platformKey] != implementation) {
+        return false;
+      }
+      return defaults.entries.every(
+        (entry) => entry.key == platformKey || entry.value != implementation,
+      );
+    }
 
     bool droppedWithItsPlugin(String name) {
       final dependents = [
@@ -134,11 +148,7 @@ class PluginAuditHelper {
           if (names.contains(name)) dependent,
       ];
       return dependents.isNotEmpty &&
-          dependents.every(
-            (dependent) =>
-                unused.contains(dependent) &&
-                defaultPackages[dependent] == name,
-          );
+          dependents.every((dependent) => dropsOnlyHere(dependent, name));
     }
 
     return unused.where((name) => !droppedWithItsPlugin(name)).toList()..sort();

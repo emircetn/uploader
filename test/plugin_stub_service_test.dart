@@ -37,6 +37,7 @@ class FakeProcessService extends ProcessService {
     final fooRoot = isStubbed
         ? "../build/uploader/plugin_stubs/foo/"
         : Uri.directory(cachedFooRoot).toString();
+    final hasImplementation = !isStubbed || keepsImplementation;
     File("$projectRoot/.dart_tool/package_config.json")
       ..createSync(recursive: true)
       ..writeAsStringSync(
@@ -44,14 +45,19 @@ class FakeProcessService extends ProcessService {
           "configVersion": 2,
           "packages": [
             {"name": "foo", "rootUri": fooRoot, "packageUri": "lib/"},
+            if (hasImplementation)
+              {
+                "name": "foo_ios",
+                "rootUri": Uri.directory(
+                  "$cachedFooRoot/../foo_ios",
+                ).toString(),
+                "packageUri": "lib/",
+              },
           ],
         }),
       );
 
-    final iosPlugins = [
-      if (!isStubbed || keepsImplementation) "foo_ios",
-      "kept_plugin",
-    ];
+    final iosPlugins = [if (hasImplementation) "foo_ios", "kept_plugin"];
     File("$projectRoot/.flutter-plugins-dependencies").writeAsStringSync(
       jsonEncode({
         "plugins": {
@@ -118,6 +124,18 @@ flutter:
     File("$cachedFooRoot/ios/Classes/Foo.m")
       ..createSync(recursive: true)
       ..writeAsStringSync("// native\n");
+
+    File("${sandbox.path}/cache/foo_ios/pubspec.yaml")
+      ..createSync(recursive: true)
+      ..writeAsStringSync('''
+name: foo_ios
+flutter:
+  plugin:
+    implements: foo
+    platforms:
+      ios:
+        pluginClass: FooPlugin
+''');
   });
 
   tearDown(() => sandbox.deleteSync(recursive: true));
@@ -369,7 +387,32 @@ flutter:
   );
 
   test(
-    'files the analysis build rewrites come back even with nothing stubbed',
+    'with nothing stubbed what the builds rewrite stays, as in a plain run',
+    () async {
+      final process = fakeProcess();
+      final service = PluginStubService(
+        config: const PluginStubConfig(auto: true),
+        processService: process,
+        projectRoot: projectRoot,
+      );
+
+      service.backUp();
+      projectFile("ios/Podfile.lock").writeAsStringSync("analysis pods\n");
+      expect(await service.apply(), isTrue);
+      projectFile("ios/Podfile.lock").writeAsStringSync("release pods\n");
+      await service.restore();
+
+      expect(
+        projectFile("ios/Podfile.lock").readAsStringSync(),
+        "release pods\n",
+      );
+      expect(Directory("$projectRoot/build/uploader").existsSync(), isFalse);
+      expect(process.pubGetCount, 0);
+    },
+  );
+
+  test(
+    'a failure before anything was stubbed still restores the project',
     () async {
       final service = PluginStubService(
         config: const PluginStubConfig(auto: true),
@@ -379,7 +422,6 @@ flutter:
 
       service.backUp();
       projectFile("ios/Podfile.lock").writeAsStringSync("analysis pods\n");
-      expect(await service.apply(), isTrue);
       await service.restore();
 
       expect(
@@ -388,6 +430,90 @@ flutter:
       );
     },
   );
+
+  test('dependencies the analysis resolved are not resolved again', () async {
+    final process = fakeProcess();
+    await process.pubGet();
+    final service = serviceWith(process);
+
+    expect(await service.apply(isResolved: true), isTrue);
+    await service.restore();
+
+    expect(process.pubGetCount, 3);
+  });
+
+  test('lockfiles changed after a killed run are not overwritten', () async {
+    final killed = serviceWith(fakeProcess());
+    expect(await killed.apply(), isTrue);
+
+    final manifest = projectFile(
+      "build/uploader/plugin_stub_backup/manifest.json",
+    );
+    final killedAt = DateTime.now().subtract(const Duration(hours: 1));
+    manifest.setLastModifiedSync(killedAt);
+    projectFile("pubspec_overrides.yaml").setLastModifiedSync(killedAt);
+    projectFile("ios/Podfile.lock")
+      ..writeAsStringSync("stubbed pods\n")
+      ..setLastModifiedSync(killedAt);
+    projectFile("pubspec.lock").writeAsStringSync("upgraded lock\n");
+
+    final nextRun = serviceWith(fakeProcess());
+    expect(await nextRun.recoverInterruptedRun(), isTrue);
+
+    expect(projectFile("pubspec.lock").readAsStringSync(), "upgraded lock\n");
+    expect(
+      projectFile("ios/Podfile.lock").readAsStringSync(),
+      "original pods\n",
+    );
+    expect(projectFile("pubspec_overrides.yaml").existsSync(), isFalse);
+
+    await killed.restore();
+  });
+
+  test('links in a package are copied as links', () async {
+    File("$cachedFooRoot/darwin/Classes/Foo.swift")
+      ..createSync(recursive: true)
+      ..writeAsStringSync("// shared\n");
+    Directory("$cachedFooRoot/macos").createSync();
+    Link("$cachedFooRoot/macos/Classes").createSync("../darwin/Classes");
+    File("${sandbox.path}/shared/shared.dart")
+      ..createSync(recursive: true)
+      ..writeAsStringSync("void shared() {}\n");
+    Link(
+      "$cachedFooRoot/lib/shared.dart",
+    ).createSync("../../../shared/shared.dart");
+    final service = serviceWith(fakeProcess());
+
+    expect(await service.apply(), isTrue);
+
+    final stubRoot = "$projectRoot/build/uploader/plugin_stubs/foo";
+    final insideLink = Link("$stubRoot/macos/Classes");
+    expect(insideLink.targetSync(), "../darwin/Classes");
+    expect(File("$stubRoot/macos/Classes/Foo.swift").existsSync(), isTrue);
+    final outsideLink = Link("$stubRoot/lib/shared.dart");
+    expect(
+      File(outsideLink.targetSync()).resolveSymbolicLinksSync(),
+      File("${sandbox.path}/shared/shared.dart").resolveSymbolicLinksSync(),
+    );
+
+    await service.restore();
+  });
+
+  test('a pub workspace member is refused before anything runs', () {
+    projectFile(
+      "pubspec.yaml",
+    ).writeAsStringSync("name: app\nresolution: workspace\n");
+
+    expect(serviceWith(fakeProcess()).checkProject(), isFalse);
+    expect(
+      PluginStubService(
+        config: const PluginStubConfig(),
+        processService: fakeProcess(),
+        projectRoot: projectRoot,
+      ).checkProject(),
+      isTrue,
+    );
+  });
 
   test('a second run of the same service is restored too', () async {
     final service = serviceWith(fakeProcess());

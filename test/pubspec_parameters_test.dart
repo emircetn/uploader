@@ -219,6 +219,23 @@ uploader:
       expect(params.pluginStubs.isEmpty, isFalse);
     });
 
+    test('a package entry that is not a list stops the parse', () {
+      expect(
+        () => parse('''
+uploader:
+  prunedFonts:
+    phosphor_icons: PhosphorLight
+'''),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            "message",
+            contains("uploader.prunedFonts.phosphor_icons must be a list"),
+          ),
+        ),
+      );
+    });
+
     test('stubs are verified and plugins unchecked by default', () {
       final params = parse('uploader:\n  platform: all\n');
 

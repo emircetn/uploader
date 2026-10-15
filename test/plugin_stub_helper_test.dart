@@ -79,9 +79,10 @@ void main() {
       expect(plan.strippedPlatformKeys, ["ios"]);
     });
 
-    test('an implementation another platform still uses is kept', () {
+    test('a platform uploader does not build keeps no implementation', () {
       final pubspec = federatedPubspec();
       pubspec["flutter"]["plugin"]["platforms"] = {
+        "android": {"default_package": "foo_android"},
         "ios": {"default_package": "foo_foundation"},
         "macos": {"default_package": "foo_foundation"},
       };
@@ -94,11 +95,35 @@ void main() {
         packageRoot: "/cache/foo",
       );
 
+      expect(plan.droppedImplementations, ["foo_foundation"]);
+      expect(
+        (plan.pubspec["dependencies"] as Map).keys,
+        isNot(contains("foo_foundation")),
+      );
+      expect(plan.pubspec["flutter"]["plugin"]["platforms"].keys, ["android"]);
+    });
+
+    test('an implementation a built platform still uses is kept', () {
+      final pubspec = federatedPubspec();
+      pubspec["flutter"]["plugin"]["platforms"] = {
+        "android": {"default_package": "foo_mobile"},
+        "ios": {"default_package": "foo_mobile"},
+      };
+      pubspec["dependencies"]["foo_mobile"] = "^1.0.0";
+
+      final plan = helper.planStub(
+        name: "foo",
+        pubspec: pubspec,
+        strippedPlatform: AppPlatform.ios,
+        packageRoot: "/cache/foo",
+      );
+
       expect(plan.droppedImplementations, isEmpty);
       expect(
         (plan.pubspec["dependencies"] as Map).keys,
-        contains("foo_foundation"),
+        contains("foo_mobile"),
       );
+      expect(plan.excludedPackages, ["foo", "foo_mobile"]);
     });
 
     test('an inline plugin loses only the stripped platform', () {
@@ -228,6 +253,32 @@ flutter:
 
       expect(plan.droppedImplementations, ["foo_ios"]);
       expect(loadYaml(helper.encodePubspec(plan.pubspec))["name"], "foo");
+    });
+  });
+
+  group('leftGraph', () {
+    PluginStubPlan planOf(String name, {Map<String, dynamic>? pubspec}) =>
+        helper.planStub(
+          name: name,
+          pubspec: pubspec ?? federatedPubspec(),
+          strippedPlatform: AppPlatform.ios,
+          packageRoot: "/cache/$name",
+        );
+
+    test('an implementation only its plugin depended on leaves', () {
+      expect(helper.leftGraph([planOf("foo")]), {"foo_ios"});
+    });
+
+    test('an implementation another stub still depends on stays', () {
+      final fooHelper = planOf(
+        "foo_helper",
+        pubspec: {
+          "name": "foo_helper",
+          "dependencies": {"foo_ios": "^1.0.0"},
+        },
+      );
+
+      expect(helper.leftGraph([planOf("foo"), fooHelper]), isEmpty);
     });
   });
 

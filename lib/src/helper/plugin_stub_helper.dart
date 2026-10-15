@@ -27,7 +27,14 @@ class PluginStubPlan {
 
   /// Federated implementation packages the stub no longer depends on. They
   /// must leave the graph too, otherwise Flutter registers them on their own.
+  /// A platform uploader does not build, such as `macos` sharing
+  /// `shared_preferences_foundation` with `ios`, does not keep one.
   final List<String> droppedImplementations;
+
+  /// The `default_package` of every stripped platform. One a built platform
+  /// still uses stays in the graph and stays registered, unless it is
+  /// stubbed itself.
+  final List<String> strippedImplementations;
 
   /// False when the package declared no native side on [strippedPlatform], so
   /// a stub would change nothing.
@@ -50,6 +57,7 @@ class PluginStubPlan {
     required this.strippedPlatform,
     required this.pubspec,
     required this.droppedImplementations,
+    this.strippedImplementations = const [],
     required this.removesNativeCode,
     this.prunedAssets = const [],
     this.prunedAssetBytes = 0,
@@ -69,7 +77,8 @@ class PluginStubPlan {
 
   /// Every package that must no longer be registered on
   /// [strippedPlatformKeys].
-  List<String> get excludedPackages => [name, ...droppedImplementations];
+  List<String> get excludedPackages =>
+      {name, ...droppedImplementations, ...strippedImplementations}.toList();
 }
 
 class PluginStubHelper {
@@ -119,6 +128,7 @@ class PluginStubHelper {
 
     var removesNativeCode = false;
     final droppedImplementations = <String>[];
+    final strippedImplementations = <String>[];
 
     final canStrip =
         strippedPlatform != null &&
@@ -147,21 +157,26 @@ class PluginStubHelper {
         removesNativeCode = true;
       }
       strippedKeys.forEach(platformMap.remove);
-      if (platformMap.isEmpty) (flutter as Map).remove("plugin");
+      strippedImplementations.addAll(strippedDefaults);
 
-      final remainingDefaults = platformMap.values
-          .whereType<Map>()
-          .map((entry) => entry["default_package"])
-          .whereType<String>()
-          .toSet();
+      final defaultsStillBuilt = {
+        for (final key in builtPlatformKeys)
+          if (platformMap[key] case {"default_package": final String package})
+            package,
+      };
       final dependencies = stub["dependencies"];
       for (final implementation in strippedDefaults) {
-        if (remainingDefaults.contains(implementation)) continue;
+        if (defaultsStillBuilt.contains(implementation)) continue;
         if (dependencies is Map && dependencies.containsKey(implementation)) {
           dependencies.remove(implementation);
           droppedImplementations.add(implementation);
+          platformMap.removeWhere(
+            (_, entry) =>
+                entry is Map && entry["default_package"] == implementation,
+          );
         }
       }
+      if (platformMap.isEmpty) (flutter as Map).remove("plugin");
     }
 
     final prunedAssets = assetPatterns.isEmpty
@@ -187,6 +202,7 @@ class PluginStubHelper {
       strippedPlatform: strippedPlatform,
       pubspec: stub,
       droppedImplementations: droppedImplementations,
+      strippedImplementations: strippedImplementations,
       removesNativeCode: removesNativeCode,
       prunedAssets: prunedAssets,
       prunedAssetBytes: prunedAssets.fold(
@@ -317,6 +333,19 @@ class PluginStubHelper {
       entity.uri.pathSegments.lastWhere((segment) => segment.isNotEmpty);
 
   static final _resolutionFolder = RegExp(r"^\d+(\.\d+)?x$");
+
+  /// The implementations [plans] take out of the graph: dropped by one stub
+  /// and depended on by no other.
+  Set<String> leftGraph(List<PluginStubPlan> plans) {
+    final stillDepended = {
+      for (final plan in plans)
+        if (plan.pubspec["dependencies"] case final Map dependencies)
+          ...dependencies.keys.map((name) => "$name"),
+    };
+    return {
+      for (final plan in plans) ...plan.droppedImplementations,
+    }.difference(stillDepended);
+  }
 
   /// The `dependency_overrides` the run resolves with: the project's own
   /// overrides followed by one path override per stub, so a stub wins over an

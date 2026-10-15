@@ -200,20 +200,37 @@ Before building, a run copies each listed package from the pub cache into
 The Dart API stays exactly as it is, so every package that imports it still
 compiles; Flutter just no longer sees a plugin. Federated implementations
 (`google_sign_in_ios`, `google_sign_in_android`) leave the graph with it, so
-listing the app-facing package is enough.
+listing the app-facing package is enough. An implementation only a platform
+uploader does not build shares, such as `shared_preferences_foundation` for
+iOS and macOS, leaves too. One both Android and iOS use stays while the other
+platform still builds it, and the run stops until it is stubbed as well.
+Symbolic links in a package, such as `ios/Classes` pointing at
+`../darwin/Classes`, are copied as links.
 
 The copy is made from whatever version `pubspec.lock` resolves on every run,
 so an update of the package needs nothing from you. When the builds finish, or
 the run fails or is interrupted, `pubspec_overrides.yaml`, `pubspec.lock`, the
-`Podfile.lock` and the stub folders are put back. Nothing is committed.
+`Podfile.lock` and the stub folders are put back. Nothing is committed. A run
+that ends up stubbing nothing keeps what its builds changed in those files, as
+a plain build would. A run killed outright, without a signal to restore on, is
+restored by the next run; a lockfile changed after it was killed, by a
+`pub upgrade` or `pod update` for instance, is left as it is and reported.
+
+Pub workspace members (`resolution: workspace`) are not supported yet: their
+lockfile, package config and overrides live in the workspace root, so a run
+with stubs, pruned assets or pruned fonts stops before it builds anything.
 
 A stub that is called anyway throws `MissingPluginException`. That is why
 `verifyPluginStubs` is on by default: before anything is stubbed, each platform
 a stub strips is built once with `--analyze-size`, and the run stops if the AOT
 snapshot holds any Dart code of a stubbed package. Code the AOT compiler
 kept is code some path can still call; code it dropped can never call into the
-native side. The analysis build reuses the release build's parameters, without
-`--obfuscate` and `--split-debug-info`, which the analysis cannot read or take.
+native side. A one-line method the compiler inlined into its caller still
+counts: it leaves its function object in the snapshot. The analysis build
+reuses the release build's parameters, without `--obfuscate` and
+`--split-debug-info`, which the analysis cannot read or take. DWARF stack
+traces drop those function objects, so a run whose parameters still turn them
+on, through `--extra-gen-snapshot-options=--dwarf-stack-traces`, stops.
 With `uploadType: all`, App Distribution and store builds whose parameters
 still differ, such as a `--dart-define` only one of them sets, are analysed
 separately, and a plugin either of them reaches counts as reached.
@@ -223,7 +240,9 @@ and accepted.
 ### Finding what to stub
 
 `dart run uploader --audit` runs the same analysis build for every platform in
-`platform` and prints one line per registered plugin:
+`platform` and prints one line per registered plugin. It only reports: nothing
+is stubbed, `allowedPluginsPath` is neither checked nor written, and the
+project is left as it was found.
 
 ```
 [audit] 41 plugins registered on ios

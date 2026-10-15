@@ -19,6 +19,10 @@ class FakeProcessService extends ProcessService {
   /// Packages reached only by a build given the key as a parameter.
   final Map<String, Set<String>> reachedByParameter;
 
+  /// Writes functions the way a build with DWARF stack traces lists them:
+  /// instructions only, without code or function objects.
+  final bool dwarfStackTraces;
+
   final List<AppPlatform> analysedPlatforms = [];
   final List<List<String>> analysisParameters = [];
   int pubGetCount = 0;
@@ -27,6 +31,7 @@ class FakeProcessService extends ProcessService {
     required this.summaryFolder,
     this.reachedPackages = const {},
     this.reachedByParameter = const {},
+    this.dwarfStackTraces = false,
   });
 
   @override
@@ -52,7 +57,10 @@ class FakeProcessService extends ProcessService {
     Map<String, dynamic> function(String name) => {
       "n": name,
       "children": [
-        {"n": "<Code>", "value": 100},
+        {
+          "n": dwarfStackTraces ? "<(RO) Instructions>" : "<Code>",
+          "value": 100,
+        },
       ],
     };
     final summary = File("$summaryFolder/${platform.value}.json")
@@ -88,9 +96,23 @@ void main() {
   setUp(() {
     sandbox = Directory.systemTemp.createTempSync("plugin_guard_test");
     projectRoot = "${sandbox.path}/app";
-    Directory(projectRoot).createSync();
-
     final workmanagerRoot = "${sandbox.path}/workmanager";
+    File("$projectRoot/.dart_tool/package_config.json")
+      ..createSync(recursive: true)
+      ..writeAsStringSync(
+        jsonEncode({
+          "configVersion": 2,
+          "packages": [
+            for (final name in ["workmanager", "google_sign_in"])
+              {
+                "name": name,
+                "rootUri": Uri.directory("${sandbox.path}/$name").toString(),
+                "packageUri": "lib/",
+              },
+          ],
+        }),
+      );
+
     File("$workmanagerRoot/lib/workmanager.dart")
       ..createSync(recursive: true)
       ..writeAsStringSync("const channel = MethodChannel('workmanager');\n");
@@ -148,10 +170,12 @@ void main() {
   FakeProcessService fakeProcess({
     Set<String> reachedPackages = const {},
     Map<String, Set<String>> reachedByParameter = const {},
+    bool dwarfStackTraces = false,
   }) => FakeProcessService(
     summaryFolder: sandbox.path,
     reachedPackages: reachedPackages,
     reachedByParameter: reachedByParameter,
+    dwarfStackTraces: dwarfStackTraces,
   );
 
   PluginGuardService guardWith(
@@ -375,6 +399,49 @@ void main() {
       expect(await runGuard(guard), isTrue);
       expect(process.analysedPlatforms, [AppPlatform.android, AppPlatform.ios]);
     });
+
+    test('an audit only reports, even with automatic stubs on', () async {
+      final guard = guardWith(
+        configWith(
+          audit: true,
+          pluginStubs: const PluginStubConfig(auto: true),
+        ),
+      );
+
+      final analysis = await guard.analyse();
+
+      expect(analysis!.autoStubs, isEmpty);
+      expect(analysis.codeByPlatform.keys, ["android", "ios"]);
+    });
+
+    test('an analysis built with DWARF stack traces stops the run', () async {
+      final guard = guardWith(
+        configWith(pluginStubs: const PluginStubConfig(auto: true)),
+        process: fakeProcess(dwarfStackTraces: true),
+      );
+
+      expect(await guard.analyse(), isNull);
+    });
+
+    test('the analysis tells stubbing the dependencies are resolved', () async {
+      final guard = guardWith(
+        configWith(pluginStubs: const PluginStubConfig(auto: true)),
+      );
+
+      expect((await guard.analyse())!.isResolved, isTrue);
+    });
+
+    test('a missing package config stops the run before any build', () async {
+      projectFile(".dart_tool/package_config.json").deleteSync();
+      final process = fakeProcess();
+      final guard = guardWith(
+        configWith(pluginStubs: const PluginStubConfig(auto: true)),
+        process: process,
+      );
+
+      expect(await guard.analyse(), isNull);
+      expect(process.analysedPlatforms, isEmpty);
+    });
   });
 
   group('automatic stubs', () {
@@ -443,6 +510,43 @@ void main() {
 
       expect((await guard.analyse())!.autoStubs, isEmpty);
     });
+
+    test(
+      'a package the app does not depend on stops the run before any build',
+      () async {
+        projectFile(".dart_tool/package_config.json")
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            jsonEncode({
+              "configVersion": 2,
+              "packages": [
+                {
+                  "name": "workmanager",
+                  "rootUri": Uri.directory(
+                    "${sandbox.path}/workmanager",
+                  ).toString(),
+                  "packageUri": "lib/",
+                },
+              ],
+            }),
+          );
+        final process = fakeProcess();
+        final guard = guardWith(
+          configWith(
+            pluginStubs: const PluginStubConfig(
+              auto: true,
+              prunedFonts: {
+                "phosphor_flutter": ["PhosphorThin"],
+              },
+            ),
+          ),
+          process: process,
+        );
+
+        expect(await guard.analyse(), isNull);
+        expect(process.analysedPlatforms, isEmpty);
+      },
+    );
 
     test('a dry run builds nothing and stubs nothing', () async {
       final process = fakeProcess();

@@ -6,6 +6,7 @@ import 'package:collection/collection.dart';
 import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/plugin_stub_helper.dart';
+import 'package:uploader/src/helper/project_file_helper.dart';
 import 'package:uploader/src/model/plugin_stub_config.dart';
 import 'package:uploader/src/service/process_service.dart';
 import 'package:uploader/src/util/printer.dart';
@@ -27,6 +28,7 @@ class PluginStubService {
   final String projectRoot;
 
   final helper = PluginStubHelper();
+  late final files = ProjectFileHelper(projectRoot);
 
   PluginStubService({
     required this.config,
@@ -37,9 +39,11 @@ class PluginStubService {
 
   static const _manifestName = "manifest.json";
   static const _interruptedExitCode = 130;
+  static const _heartbeatInterval = Duration(seconds: 5);
 
   bool _applied = false;
   Future<void>? _restoring;
+  Timer? _heartbeat;
 
   List<PluginStubPlan> _appliedPlans = const [];
 
@@ -48,11 +52,28 @@ class PluginStubService {
   List<PluginStubPlan> get appliedPlans => _appliedPlans;
   final List<StreamSubscription<ProcessSignal>> _signalSubscriptions = [];
 
+  bool get _mayStub => !config.isEmpty || config.auto;
+
+  /// False when the project is one stubs cannot be applied to, so the run
+  /// stops before any build instead of after the analysis builds.
+  bool checkProject() {
+    if (!_mayStub) return true;
+    if (files.readYaml("pubspec.yaml")?["resolution"] != "workspace") {
+      return true;
+    }
+    return Printer.error(
+      "[stubs] pluginStubs, prunedAssets and prunedFonts do not support pub "
+      "workspace members yet: with `resolution: workspace` the lockfile, the "
+      "package config and the overrides belong to the workspace root",
+    );
+  }
+
   /// Puts back what an earlier run left stubbed because it was killed before
   /// it could restore the project. Returns false when the project could not
   /// be brought back.
   Future<bool> recoverInterruptedRun() async {
-    final hasBackup = _file(_backupPath(_manifestName)).existsSync();
+    final manifest = files.file(_backupPath(_manifestName));
+    final hasBackup = manifest.existsSync();
     final hasMarker = _hasGeneratedOverrides();
     if (!hasBackup && !hasMarker) return true;
 
@@ -70,9 +91,20 @@ class PluginStubService {
     );
 
     if (hasBackup) {
-      _restoreFiles();
+      final changedSinceRun = _restoreFiles(
+        keepChangesAfter: manifest.lastModifiedSync().add(
+          _heartbeatInterval * 2,
+        ),
+      );
+      if (changedSinceRun.isNotEmpty) {
+        Printer.warning(
+          "[stubs] these files changed after that run ended, so they were "
+          "left as they are: ${changedSinceRun.join(", ")}. Check that they "
+          "do not describe stubbed dependencies",
+        );
+      }
     } else {
-      _file(PathConstants.pubspecOverridesRelativePath).deleteSync();
+      files.file(PathConstants.pubspecOverridesRelativePath).deleteSync();
       Printer.warning(
         "[stubs] the backup of that run is gone, so only "
         "${PathConstants.pubspecOverridesRelativePath} was removed. "
@@ -94,20 +126,28 @@ class PluginStubService {
   /// anything. It runs before the code size analysis builds, since their
   /// `pod install` already rewrites `ios/Podfile.lock`. [apply] calls it too.
   void backUp() {
-    if (dryRun || _applied || (config.isEmpty && !config.auto)) return;
+    if (dryRun || _applied || !_mayStub) return;
 
     _backupFiles();
     _applied = true;
     _watchSignals();
+    _startHeartbeat();
   }
 
   /// Stubs every configured package, and each of [autoStubs] on its platform
   /// unless the config lists it or a stub already took it out of the graph.
-  /// Returns false, with the project already restored, when the stubbed
-  /// dependencies could not be resolved or a stubbed plugin is still
-  /// registered.
-  Future<bool> apply({Map<String, AppPlatform> autoStubs = const {}}) async {
-    if (config.isEmpty && autoStubs.isEmpty) return true;
+  /// [isResolved] means the original dependencies were resolved since the
+  /// last change to them. Returns false, with the project already restored,
+  /// when the stubbed dependencies could not be resolved or a stubbed plugin
+  /// is still registered.
+  Future<bool> apply({
+    Map<String, AppPlatform> autoStubs = const {},
+    bool isResolved = false,
+  }) async {
+    if (config.isEmpty && autoStubs.isEmpty) {
+      await _discardBackup();
+      return true;
+    }
 
     if (dryRun) {
       _describePlan();
@@ -118,11 +158,18 @@ class PluginStubService {
 
     bool isSuccess;
     try {
-      isSuccess = await _stubPackages(autoStubs: autoStubs);
+      isSuccess = await _stubPackages(
+        autoStubs: autoStubs,
+        isResolved: isResolved,
+      );
     } catch (e) {
       isSuccess = Printer.error("[stubs] the plugins could not be stubbed: $e");
     }
-    if (!isSuccess) await restore();
+    if (!isSuccess) {
+      await restore();
+    } else if (_appliedPlans.isEmpty) {
+      await _discardBackup();
+    }
     return isSuccess;
   }
 
@@ -137,11 +184,7 @@ class PluginStubService {
   Future<void> _restore() async {
     if (!_applied) return;
 
-    for (final subscription in _signalSubscriptions) {
-      await subscription.cancel();
-    }
-    _signalSubscriptions.clear();
-
+    await _stopWatching();
     _restoreFiles();
     _deleteWorkingFolders();
     _applied = false;
@@ -157,41 +200,52 @@ class PluginStubService {
     Printer.info("[stubs] project restored to its original dependencies");
   }
 
+  /// With nothing stubbed the run is a plain build, so what its builds
+  /// rewrite in the lockfiles stays, as it would without uploader.
+  Future<void> _discardBackup() async {
+    if (!_applied) return;
+
+    await _stopWatching();
+    _deleteWorkingFolders();
+    _applied = false;
+  }
+
   Future<bool> _stubPackages({
     required Map<String, AppPlatform> autoStubs,
+    required bool isResolved,
   }) async {
-    Printer.info("[stubs] resolving the original dependencies...");
-    if (!await processService.pubGet()) {
-      return Printer.error(
-        "[stubs] flutter pub get failed before the plugins could be stubbed",
-      );
+    if (!isResolved) {
+      Printer.info("[stubs] resolving the original dependencies...");
+      if (!await processService.pubGet()) {
+        return Printer.error(
+          "[stubs] flutter pub get failed before the plugins could be stubbed",
+        );
+      }
     }
 
-    final packageConfigUri = _file(
+    final packageConfigUri = files
+        .file(PathConstants.packageConfigRelativePath)
+        .absolute
+        .uri;
+    final packageConfig = files.readJson(
       PathConstants.packageConfigRelativePath,
-    ).absolute.uri;
-    final packageConfig = _readJson(PathConstants.packageConfigRelativePath);
+    );
     if (packageConfig == null) {
       return Printer.error(
         "[stubs] ${PathConstants.packageConfigRelativePath} could not be read",
       );
     }
 
-    final stubsFolder = Directory(_path(PathConstants.pluginStubsRelativePath));
+    final stubsFolder = Directory(
+      files.path(PathConstants.pluginStubsRelativePath),
+    );
     if (stubsFolder.existsSync()) stubsFolder.deleteSync(recursive: true);
 
-    final plans = <PluginStubPlan>[];
-    final stubPaths = <String, String>{};
     final strippedPlatforms = {...autoStubs, ...config.strippedPlatforms};
     final configuredNames = config.packageNames;
+    final candidates = <({PluginStubPlan plan, String root})>[];
 
     for (final name in {...configuredNames, ...autoStubs.keys}) {
-      final isConfigured = configuredNames.contains(name);
-      final isOutOfGraph = plans.any(
-        (plan) => plan.droppedImplementations.contains(name),
-      );
-      if (!isConfigured && isOutOfGraph) continue;
-
       final root = helper.packageRoot(
         packageConfig: packageConfig,
         packageConfigUri: packageConfigUri,
@@ -234,22 +288,34 @@ class PluginStubService {
           "${undeclaredFonts.join(", ")}",
         );
       }
-      if (!plan.changesPackage) continue;
+      if (plan.changesPackage) candidates.add((plan: plan, root: root));
+    }
 
-      final stubRelativePath = "${PathConstants.pluginStubsRelativePath}/$name";
+    final outOfGraph = helper.leftGraph([
+      for (final candidate in candidates) candidate.plan,
+    ]);
+    final plans = <PluginStubPlan>[];
+    final stubPaths = <String, String>{};
+
+    for (final (:plan, :root) in candidates) {
+      final isConfigured = configuredNames.contains(plan.name);
+      if (!isConfigured && outOfGraph.contains(plan.name)) continue;
+
+      final stubRelativePath =
+          "${PathConstants.pluginStubsRelativePath}/${plan.name}";
       _copyFolder(
         Directory(root),
-        Directory(_path(stubRelativePath)),
+        Directory(files.path(stubRelativePath)),
         skippedFolders: helper.skippedFolders(
-          plan.removesNativeCode ? strippedPlatform : null,
+          plan.removesNativeCode ? plan.strippedPlatform : null,
         ),
       );
-      _file(
-        "$stubRelativePath/pubspec.yaml",
-      ).writeAsStringSync(helper.encodePubspec(plan.pubspec));
+      files
+          .file("$stubRelativePath/pubspec.yaml")
+          .writeAsStringSync(helper.encodePubspec(plan.pubspec));
 
       plans.add(plan);
-      stubPaths[name] = stubRelativePath;
+      stubPaths[plan.name] = stubRelativePath;
     }
 
     if (plans.isEmpty) {
@@ -257,14 +323,16 @@ class PluginStubService {
       return true;
     }
 
-    _file(PathConstants.pubspecOverridesRelativePath).writeAsStringSync(
-      helper.encodeOverridesFile(
-        helper.mergeOverrides(
-          baseOverrides: _projectOverrides(),
-          stubPaths: stubPaths,
-        ),
-      ),
-    );
+    files
+        .file(PathConstants.pubspecOverridesRelativePath)
+        .writeAsStringSync(
+          helper.encodeOverridesFile(
+            helper.mergeOverrides(
+              baseOverrides: _projectOverrides(),
+              stubPaths: stubPaths,
+            ),
+          ),
+        );
 
     Printer.info("[stubs] resolving the stubbed dependencies...");
     if (!await processService.pubGet()) {
@@ -280,10 +348,13 @@ class PluginStubService {
     required List<PluginStubPlan> plans,
     required Map<String, String> stubPaths,
   }) {
-    final packageConfigUri = _file(
+    final packageConfigUri = files
+        .file(PathConstants.packageConfigRelativePath)
+        .absolute
+        .uri;
+    final packageConfig = files.readJson(
       PathConstants.packageConfigRelativePath,
-    ).absolute.uri;
-    final packageConfig = _readJson(PathConstants.packageConfigRelativePath);
+    );
 
     for (final entry in stubPaths.entries) {
       final root = packageConfig == null
@@ -293,7 +364,7 @@ class PluginStubService {
               packageConfigUri: packageConfigUri,
               name: entry.key,
             );
-      if (root == null || !_isSameFolder(root, _path(entry.value))) {
+      if (root == null || !_isSameFolder(root, files.path(entry.value))) {
         return Printer.error(
           "[stubs] ${entry.key} did not resolve to its stub at ${entry.value}",
         );
@@ -302,7 +373,7 @@ class PluginStubService {
 
     final strippingPlans = plans.where((plan) => plan.removesNativeCode);
     final remaining = helper.remainingRegistrations(
-      pluginsDependencies: _readJson(
+      pluginsDependencies: files.readJson(
         PathConstants.flutterPluginsDependenciesRelativePath,
       ),
       plans: strippingPlans.toList(),
@@ -310,8 +381,8 @@ class PluginStubService {
     if (remaining.isNotEmpty) {
       return Printer.error(
         "[stubs] these plugins are still registered, because another "
-        "dependency still pulls them in: ${remaining.join(", ")}. "
-        "Add them to pluginStubs too",
+        "dependency or a platform that is still built pulls them in: "
+        "${remaining.join(", ")}. Add them to pluginStubs too",
       );
     }
 
@@ -339,16 +410,14 @@ class PluginStubService {
   /// The overrides pub applies without uploader. A `pubspec_overrides.yaml`
   /// that sets them replaces the ones in `pubspec.yaml`.
   Map<dynamic, dynamic>? _projectOverrides() {
-    final backedUpOverrides = _file(
+    final backedUpOverrides = files.readYaml(
       _backupPath(PathConstants.pubspecOverridesRelativePath),
     );
-    if (backedUpOverrides.existsSync()) {
-      final overrides = _readYaml(backedUpOverrides);
-      if (overrides != null && overrides.containsKey("dependency_overrides")) {
-        return overrides["dependency_overrides"];
-      }
+    if (backedUpOverrides != null &&
+        backedUpOverrides.containsKey("dependency_overrides")) {
+      return backedUpOverrides["dependency_overrides"];
     }
-    return _readYaml(_file("pubspec.yaml"))?["dependency_overrides"];
+    return files.readYaml("pubspec.yaml")?["dependency_overrides"];
   }
 
   void _describePlan() {
@@ -369,37 +438,46 @@ class PluginStubService {
 
   void _backupFiles() {
     final backupFolder = Directory(
-      _path(PathConstants.pluginStubBackupRelativePath),
+      files.path(PathConstants.pluginStubBackupRelativePath),
     );
     if (backupFolder.existsSync()) backupFolder.deleteSync(recursive: true);
     backupFolder.createSync(recursive: true);
 
     final existed = <String, bool>{};
     for (final relativePath in PathConstants.pluginStubRestoredFiles) {
-      final file = _file(relativePath);
+      final file = files.file(relativePath);
       existed[relativePath] = file.existsSync();
       if (file.existsSync()) {
-        final backup = _file(_backupPath(relativePath));
+        final backup = files.file(_backupPath(relativePath));
         backup.parent.createSync(recursive: true);
         file.copySync(backup.path);
       }
     }
 
-    _file(
-      _backupPath(_manifestName),
-    ).writeAsStringSync(jsonEncode({"existed": existed}));
+    files
+        .file(_backupPath(_manifestName))
+        .writeAsStringSync(jsonEncode({"existed": existed}));
   }
 
-  void _restoreFiles() {
-    final manifest = _readJson(_backupPath(_manifestName));
+  /// Puts the backed up files back and returns those it left as they are
+  /// because they changed after [keepChangesAfter].
+  List<String> _restoreFiles({DateTime? keepChangesAfter}) {
+    final manifest = files.readJson(_backupPath(_manifestName));
     final existed = manifest?["existed"];
-    if (existed is! Map) return;
+    if (existed is! Map) return const [];
 
+    final keptChanges = <String>[];
     for (final entry in existed.entries) {
       final relativePath = "${entry.key}";
-      final file = _file(relativePath);
-      if (entry.value == true) {
-        final backup = _file(_backupPath(relativePath));
+      final file = files.file(relativePath);
+      final isChangedSince =
+          keepChangesAfter != null &&
+          file.existsSync() &&
+          file.lastModifiedSync().isAfter(keepChangesAfter);
+      if (isChangedSince) {
+        keptChanges.add(relativePath);
+      } else if (entry.value == true) {
+        final backup = files.file(_backupPath(relativePath));
         if (backup.existsSync()) {
           file.parent.createSync(recursive: true);
           backup.copySync(file.path);
@@ -408,6 +486,7 @@ class PluginStubService {
         file.deleteSync();
       }
     }
+    return keptChanges;
   }
 
   void _deleteWorkingFolders() {
@@ -415,12 +494,12 @@ class PluginStubService {
       PathConstants.pluginStubsRelativePath,
       PathConstants.pluginStubBackupRelativePath,
     ]) {
-      final folder = Directory(_path(relativePath));
+      final folder = Directory(files.path(relativePath));
       if (folder.existsSync()) folder.deleteSync(recursive: true);
     }
 
     final uploaderFolder = Directory(
-      _path(PathConstants.uploaderBuildRelativePath),
+      files.path(PathConstants.uploaderBuildRelativePath),
     );
     if (uploaderFolder.existsSync() && uploaderFolder.listSync().isEmpty) {
       uploaderFolder.deleteSync();
@@ -444,29 +523,66 @@ class PluginStubService {
     }
   }
 
+  /// A run killed without a signal leaves its backup behind. The manifest's
+  /// modification time tells the next run until when this one was alive, so
+  /// a lockfile changed after that is not overwritten with the backup.
+  void _startHeartbeat() {
+    final manifest = files.file(_backupPath(_manifestName));
+    _heartbeat = Timer.periodic(_heartbeatInterval, (_) {
+      if (manifest.existsSync()) manifest.setLastModifiedSync(DateTime.now());
+    });
+  }
+
+  Future<void> _stopWatching() async {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    for (final subscription in _signalSubscriptions) {
+      await subscription.cancel();
+    }
+    _signalSubscriptions.clear();
+  }
+
   /// Copies [from] into [to], leaving out the top level folders in
-  /// [skippedFolders].
+  /// [skippedFolders]. Links are copied as links, such as an `ios/Classes`
+  /// pointing at `../darwin/Classes`.
   void _copyFolder(
     Directory from,
     Directory to, {
     Set<String> skippedFolders = const {},
+    Uri? packageRoot,
   }) {
+    final root = packageRoot ?? from.absolute.uri;
     to.createSync(recursive: true);
     for (final entity in from.listSync(followLinks: false)) {
       final name = entity.uri.pathSegments.lastWhere(
         (segment) => segment.isNotEmpty,
       );
-      if (entity is Directory) {
-        if (skippedFolders.contains(name)) continue;
-        _copyFolder(entity, Directory("${to.path}/$name"));
+      final copyPath = "${to.path}/$name";
+      if (entity is! File && skippedFolders.contains(name)) continue;
+
+      if (entity is Link) {
+        Link(copyPath).createSync(_copiedLinkTarget(entity, packageRoot: root));
+      } else if (entity is Directory) {
+        _copyFolder(entity, Directory(copyPath), packageRoot: root);
       } else if (entity is File) {
-        entity.copySync("${to.path}/$name");
+        entity.copySync(copyPath);
       }
     }
   }
 
+  /// A relative target inside the package still holds in the copy; any other
+  /// target has to name the original, since the copy lives somewhere else.
+  String _copiedLinkTarget(Link link, {required Uri packageRoot}) {
+    final target = link.targetSync();
+    final targetUri = Uri.file(target);
+    final resolved = link.absolute.parent.uri.resolveUri(targetUri);
+    final staysInPackage =
+        !targetUri.isAbsolute && resolved.path.startsWith(packageRoot.path);
+    return staysInPackage ? target : resolved.toFilePath();
+  }
+
   bool _hasGeneratedOverrides() {
-    final overrides = _file(PathConstants.pubspecOverridesRelativePath);
+    final overrides = files.file(PathConstants.pubspecOverridesRelativePath);
     if (!overrides.existsSync()) return false;
     final firstLine = overrides.readAsLinesSync().firstOrNull;
     return firstLine == pluginStubOverridesMarker;
@@ -481,27 +597,6 @@ class PluginStubService {
     return canonical(a) == canonical(b);
   }
 
-  Map<dynamic, dynamic>? _readJson(String relativePath) {
-    final file = _file(relativePath);
-    if (!file.existsSync()) return null;
-    try {
-      final decoded = jsonDecode(file.readAsStringSync());
-      return decoded is Map ? decoded : null;
-    } on FormatException {
-      return null;
-    }
-  }
-
-  Map<dynamic, dynamic>? _readYaml(File file) {
-    if (!file.existsSync()) return null;
-    final decoded = loadYaml(file.readAsStringSync());
-    return decoded is Map ? decoded : null;
-  }
-
   String _backupPath(String relativePath) =>
       "${PathConstants.pluginStubBackupRelativePath}/$relativePath";
-
-  String _path(String relativePath) => "$projectRoot/$relativePath";
-
-  File _file(String relativePath) => File(_path(relativePath));
 }

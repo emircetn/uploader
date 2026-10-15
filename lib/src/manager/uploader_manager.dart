@@ -50,7 +50,7 @@ class UploaderManager {
       if (config.isAudit) {
         Printer.warning(
           "AUDIT: each platform is built once for code size analysis; "
-          "nothing will be uploaded.",
+          "nothing will be stubbed or uploaded.",
         );
       }
 
@@ -64,13 +64,17 @@ class UploaderManager {
         }
       }
 
+      if (!pluginStubService.checkProject()) return false;
+
       pluginStubService.backUp();
       try {
         final analysis = await pluginGuardService.analyse();
         if (analysis == null) return false;
+        if (config.isAudit) return true;
 
         final isStubbed = await pluginStubService.apply(
           autoStubs: analysis.autoStubs,
+          isResolved: analysis.isResolved,
         );
         if (!isStubbed) return false;
 
@@ -79,7 +83,6 @@ class UploaderManager {
           analysis: analysis,
         );
         if (!isSafe) return false;
-        if (config.isAudit) return true;
         return await _runUploads();
       } finally {
         await pluginStubService.restore();

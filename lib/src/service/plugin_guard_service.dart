@@ -9,6 +9,7 @@ import 'package:uploader/src/helper/native_import_helper.dart';
 import 'package:uploader/src/helper/plugin_allowlist_helper.dart';
 import 'package:uploader/src/helper/plugin_audit_helper.dart';
 import 'package:uploader/src/helper/plugin_stub_helper.dart';
+import 'package:uploader/src/helper/project_file_helper.dart';
 import 'package:uploader/src/service/process_service.dart';
 import 'package:uploader/src/util/printer.dart';
 
@@ -21,9 +22,14 @@ class PluginAnalysis {
   /// stubbed on.
   final Map<String, AppPlatform> autoStubs;
 
+  /// Whether the analysis resolved the original dependencies, so stubbing
+  /// does not have to resolve them again.
+  final bool isResolved;
+
   const PluginAnalysis({
     this.codeByPlatform = const {},
     this.autoStubs = const {},
+    this.isResolved = false,
   });
 }
 
@@ -48,6 +54,7 @@ class PluginGuardService {
   final codeSizeHelper = CodeSizeHelper();
   final nativeImportHelper = NativeImportHelper();
   final stubHelper = PluginStubHelper();
+  late final files = ProjectFileHelper(projectRoot);
 
   bool _hasResolved = false;
 
@@ -59,7 +66,7 @@ class PluginGuardService {
 
   bool get _dryRun => config.isDryRun;
 
-  bool get _stubsAutomatically => config.pluginStubs.auto;
+  bool get _stubsAutomatically => config.pluginStubs.auto && !config.isAudit;
 
   List<String> get _builtPlatformKeys => [
     if (config.platform.availableOnAndroid) AppPlatform.android.value,
@@ -96,7 +103,7 @@ class PluginGuardService {
       if (!_checkConfiguredPackages()) return null;
     }
 
-    final pluginsDependencies = _readJson(
+    final pluginsDependencies = files.readJson(
       PathConstants.flutterPluginsDependenciesRelativePath,
     );
     final codeByPlatform = <String, Map<String, PackageCode>>{};
@@ -126,18 +133,27 @@ class PluginGuardService {
       autoStubs: _stubsAutomatically
           ? _autoStubsFrom(unusedByPlatform)
           : const {},
+      isResolved: _hasResolved,
     );
   }
 
   /// A package the config names but the app does not depend on would only
   /// stop the run once the stubs are applied, after the analysis builds.
   bool _checkConfiguredPackages() {
-    final packageConfig = _readJson(PathConstants.packageConfigRelativePath);
-    if (packageConfig == null) return true;
-
-    final packageConfigUri = _file(
+    final packageConfig = files.readJson(
       PathConstants.packageConfigRelativePath,
-    ).absolute.uri;
+    );
+    if (packageConfig == null) {
+      return Printer.error(
+        "[guard] ${PathConstants.packageConfigRelativePath} could not be read "
+        "after flutter pub get",
+      );
+    }
+
+    final packageConfigUri = files
+        .file(PathConstants.packageConfigRelativePath)
+        .absolute
+        .uri;
     final missing = config.pluginStubs.packageNames
         .where(
           (name) =>
@@ -174,7 +190,7 @@ class PluginGuardService {
     }
 
     return _checkAllowlist(
-      _readJson(PathConstants.flutterPluginsDependenciesRelativePath),
+      files.readJson(PathConstants.flutterPluginsDependenciesRelativePath),
     );
   }
 
@@ -228,7 +244,7 @@ class PluginGuardService {
       pluginsDependencies: pluginsDependencies,
       platformKeys: _builtPlatformKeys,
     );
-    final file = _file(allowedPluginsPath);
+    final file = files.file(allowedPluginsPath);
     final allowed = file.existsSync()
         ? allowlistHelper.decode(file.readAsStringSync())
         : <String, List<String>>{};
@@ -341,8 +357,18 @@ class PluginGuardService {
 
     final summary = jsonDecode(File(summaryPath).readAsStringSync());
     final code = summary is Map ? codeSizeHelper.packagesIn(summary) : null;
-    if (code == null) {
+    if (summary is! Map || code == null) {
       Printer.error("[guard] $summaryPath has no Dart AOT snapshot to analyse");
+      return null;
+    }
+    if (!codeSizeHelper.keepsFunctionObjects(summary)) {
+      Printer.error(
+        "[guard] $summaryPath was built with DWARF stack traces, which drop "
+        "the function objects the analysis reads, so it cannot tell which "
+        "plugins are reached. Remove --dwarf-stack-traces from the build "
+        "parameters",
+      );
+      return null;
     }
     return code;
   }
@@ -415,17 +441,4 @@ class PluginGuardService {
   String _formatByPlatform(Map<String, List<String>> names) => names.entries
       .map((entry) => "${entry.key}: ${entry.value.join(", ")}")
       .join("\n");
-
-  Map<dynamic, dynamic>? _readJson(String relativePath) {
-    final file = _file(relativePath);
-    if (!file.existsSync()) return null;
-    try {
-      final decoded = jsonDecode(file.readAsStringSync());
-      return decoded is Map ? decoded : null;
-    } on FormatException {
-      return null;
-    }
-  }
-
-  File _file(String relativePath) => File("$projectRoot/$relativePath");
 }

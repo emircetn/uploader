@@ -109,6 +109,35 @@ void main() {
     expect(merged["url"]!.functions, ["launch"]);
   });
 
+  test('a function inlined everywhere still reaches its package', () {
+    final packages = helper.packagesIn(
+      summaryWith([
+        node("package:probe/package:probe/probe.dart", [
+          node("Probe", [
+            node("forced", [leaf("<Function>", 13)]),
+            leaf("<Class>", 30),
+          ]),
+        ]),
+      ]),
+    )!;
+
+    expect(packages["probe"]!.functions, ["forced"]);
+  });
+
+  test('a snapshot with DWARF stack traces cannot be analysed', () {
+    final dwarfSummary = summaryWith([
+      node("package:probe/package:probe/probe.dart/Probe", [
+        node("ping", [leaf("<(RO) Instructions>", 80)]),
+      ]),
+    ]);
+    final regularSummary = summaryWith([
+      node("package:probe", [function("ping")]),
+    ]);
+
+    expect(helper.keepsFunctionObjects(dwarfSummary), isFalse);
+    expect(helper.keepsFunctionObjects(regularSummary), isTrue);
+  });
+
   test('a summary without a Dart AOT snapshot yields nothing', () {
     expect(helper.packagesIn(node("Root", [leaf("Runner", 10)])), isNull);
   });

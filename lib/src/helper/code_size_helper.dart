@@ -73,6 +73,15 @@ class CodeSizeHelper {
     return kept;
   }
 
+  /// False when the snapshot in [summary] holds no code or function objects
+  /// at all, which is what DWARF stack traces leave. A function the AOT
+  /// compiler inlined everywhere keeps only its function object, so without
+  /// them a reached plugin cannot be told from an unused one.
+  bool keepsFunctionObjects(Map<dynamic, dynamic> summary) {
+    final snapshot = _findSnapshot(summary);
+    return snapshot != null && _hasCodeLeaf(snapshot);
+  }
+
   /// The packages the snapshot in [summary] kept code for, by package name.
   /// Null when [summary] has no Dart AOT snapshot in it.
   Map<String, PackageCode>? packagesIn(Map<dynamic, dynamic> summary) {
@@ -132,6 +141,10 @@ class CodeSizeHelper {
     }
     return null;
   }
+
+  bool _hasCodeLeaf(Map<dynamic, dynamic> node) => _children(
+    node,
+  ).any((child) => _codeLeaves.contains(child["n"]) || _hasCodeLeaf(child));
 
   void _collectFunctions(Map<dynamic, dynamic> node, List<String> functions) {
     for (final child in _children(node)) {
