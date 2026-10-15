@@ -182,7 +182,7 @@ uploader:
       - media_kit_libs_ios_video
     android: []
   prunedAssets: # glob patterns, relative to each package's root
-    appnation_purchases:
+    paywall_kit:
       - assets/videos/**
   prunedFonts: # font families each package declares
     phosphor_flutter:

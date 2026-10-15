@@ -195,12 +195,12 @@ uploader:
       final params = parse('''
 uploader:
   prunedAssets:
-    appnation_purchases:
+    paywall_kit:
       - assets/videos/**
 ''');
 
       expect(params.pluginStubs.prunedAssets, {
-        "appnation_purchases": ["assets/videos/**"],
+        "paywall_kit": ["assets/videos/**"],
       });
       expect(params.pluginStubs.isEmpty, isFalse);
     });
