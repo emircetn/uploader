@@ -1,3 +1,19 @@
+## 1.2.0
+
+### Trimming plugins and assets
+
+- Added `pluginStubs`: the listed plugins lose their native side on `all`, `ios` or `android` for the run, through a copy of the package and a generated `pubspec_overrides.yaml`. The Dart API stays, so nothing stops compiling, and the project is restored when the run ends, fails or is interrupted. Nothing is committed. See "Trimming plugins and assets" in the README
+- Added `pluginStubs.auto` and `pluginStubs.keep`: every plugin the code size analysis finds unreached from Dart is stubbed too, except the ones listed in `keep`, plugins the app's native code imports, plugins a staying plugin depends on or may load, and SDKs that work at startup (`firebase_*`, `appsflyer_sdk` and others)
+- Added `verifyPluginStubs`, on by default: each platform a stub strips is built once with `--analyze-size`, and the run stops if a stubbed package still has Dart code in the AOT snapshot
+- Added `--audit`: builds each platform once for code size analysis and reports which registered plugins the Dart code still reaches. Nothing is stubbed or uploaded
+- Added `prunedAssets` and `prunedFonts`: asset files matching glob patterns and whole font families are left out of a package's bundle
+- Added `allowedPluginsPath`: a run stops before building when a platform registers a plugin the file does not list, so a dependency update cannot add native code unnoticed
+- Pub workspace members (`resolution: workspace`) are not supported by these options yet; a run that uses them stops before building
+
+### Build environment
+
+- Added `extraBuildEnvironment`, `appDistributionExtraBuildEnvironment` and `storeExtraBuildEnvironment`: environment variables a build process receives, merged like the build parameters. A `FLUTTER_XCODE_` build setting meant for testers no longer has to reach the store build. See "Build environment" in the README
+
 ## 1.1.0
 
 ### iOS
