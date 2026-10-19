@@ -7,6 +7,7 @@ import 'package:uploader/src/config/ios/ios_account_config.dart';
 import 'package:uploader/src/config/ios/ios_config.dart';
 import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
+import 'package:uploader/src/helper/code_size_helper.dart';
 import 'package:uploader/src/util/printer.dart';
 
 class ProcessService {
@@ -14,13 +15,17 @@ class ProcessService {
 
   ProcessService({this.dryRun = false});
 
+  final _codeSizeHelper = CodeSizeHelper();
+
   Future<bool> buildIpa({
     required IPAType type,
     List<String>? extraBuildParameters,
+    Map<String, String>? environment,
   }) async {
     return await _runProcess(
       platform: AppPlatform.ios,
       executable: 'flutter',
+      environment: environment,
       arguments: [
         'build',
         'ipa',
@@ -35,10 +40,12 @@ class ProcessService {
   Future<bool> buildAbb({
     String? skslPath,
     List<String>? extraBuildParameters,
+    Map<String, String>? environment,
   }) async {
     return await _runProcess(
       platform: AppPlatform.android,
       executable: 'flutter',
+      environment: environment,
       arguments: [
         'build',
         'appbundle',
@@ -52,10 +59,56 @@ class ProcessService {
     );
   }
 
-  Future<bool> buildApk({List<String>? extraBuildParameters}) async {
+  Future<bool> pubGet() async {
+    return await _runProcess(
+      platform: AppPlatform.all,
+      executable: 'flutter',
+      arguments: ['pub', 'get'],
+    );
+  }
+
+  /// Builds [platform] once for code size analysis and returns the path of
+  /// the summary Flutter writes, or null when the build failed or did not
+  /// run. Android is analysed for arm64 only, since the analysis takes a
+  /// single ABI.
+  Future<String?> buildForCodeSize({
+    required AppPlatform platform,
+    required String codeSizeDirectory,
+    List<String>? extraBuildParameters,
+  }) async {
+    String? summaryPath;
+    final isSuccess = await _runProcess(
+      platform: platform,
+      executable: 'flutter',
+      arguments: [
+        'build',
+        if (platform == AppPlatform.ios) ...[
+          'ios',
+          '--no-codesign',
+        ] else ...[
+          'apk',
+          '--target-platform',
+          'android-arm64',
+        ],
+        '--release',
+        '--analyze-size',
+        '--code-size-directory',
+        codeSizeDirectory,
+        ...?extraBuildParameters,
+      ],
+      onLine: (line) => summaryPath ??= _codeSizeHelper.summaryPathIn(line),
+    );
+    return isSuccess ? summaryPath : null;
+  }
+
+  Future<bool> buildApk({
+    List<String>? extraBuildParameters,
+    Map<String, String>? environment,
+  }) async {
     return await _runProcess(
       platform: AppPlatform.android,
       executable: 'flutter',
+      environment: environment,
       arguments: ['build', 'apk', '--release', ...?extraBuildParameters],
     );
   }
@@ -164,11 +217,17 @@ class ProcessService {
     required AppPlatform platform,
     required String executable,
     required List<String> arguments,
+    Map<String, String>? environment,
     ProcessStartMode mode = ProcessStartMode.normal,
+    void Function(String line)? onLine,
   }) async {
     if (dryRun) {
+      final env = [
+        for (final MapEntry(:key, :value) in (environment ?? const {}).entries)
+          '$key=$value ',
+      ].join();
       Printer.info(
-        "[${platform.value}] would run: $executable ${arguments.join(' ')}",
+        "[${platform.value}] would run: $env$executable ${arguments.join(' ')}",
       );
       return true;
     }
@@ -177,24 +236,31 @@ class ProcessService {
       final process = await Process.start(
         executable,
         arguments,
+        environment: environment,
         runInShell: true,
         mode: mode,
       );
 
-      process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
-            print("[${platform.value}] $line");
-          });
-      process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen((line) {
-            print("[${platform.value}] $line");
-          });
+      void printLine(String line) {
+        print("[${platform.value}] $line");
+        onLine?.call(line);
+      }
+
+      final output = [
+        process.stdout
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen(printLine)
+            .asFuture<void>(),
+        process.stderr
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())
+            .listen(printLine)
+            .asFuture<void>(),
+      ];
 
       final exitCode = await process.exitCode;
+      await Future.wait(output);
 
       return exitCode == 0;
     } catch (e) {

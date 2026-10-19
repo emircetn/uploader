@@ -2,6 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/data_source.dart';
+import 'package:uploader/src/model/plugin_stub_config.dart';
 
 class PubspecParameters {
   //general
@@ -32,9 +33,27 @@ class PubspecParameters {
   final List<String>? appDistributionExtraBuildParameters;
   final List<String>? storeExtraBuildParameters;
 
+  /// Environment variables every build process receives, such as a
+  /// `FLUTTER_XCODE_` build setting.
+  final Map<String, String>? extraBuildEnvironment;
+
+  /// Applied on top of [extraBuildEnvironment] for that target's builds only.
+  final Map<String, String>? appDistributionExtraBuildEnvironment;
+  final Map<String, String>? storeExtraBuildEnvironment;
+
   final bool useParallelUpload;
   final bool enableLogFileCreation;
   final int uploadRetryCount;
+
+  final PluginStubConfig pluginStubs;
+
+  /// A file listing every plugin each platform may register. Unset means the
+  /// registered plugins are not checked.
+  final String? allowedPluginsPath;
+
+  /// Whether a run proves, from a code size analysis build, that no Dart code
+  /// can still reach a stubbed plugin before it builds anything it uploads.
+  final bool verifyPluginStubs;
 
   bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
@@ -57,9 +76,15 @@ class PubspecParameters {
     required this.extraBuildParameters,
     this.appDistributionExtraBuildParameters,
     this.storeExtraBuildParameters,
+    this.extraBuildEnvironment,
+    this.appDistributionExtraBuildEnvironment,
+    this.storeExtraBuildEnvironment,
     required this.useParallelUpload,
     required this.enableLogFileCreation,
     this.uploadRetryCount = 2,
+    this.pluginStubs = const PluginStubConfig(),
+    this.allowedPluginsPath,
+    this.verifyPluginStubs = true,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -135,17 +160,79 @@ class PubspecParameters {
       storeExtraBuildParameters: _parseIterableToList<String>(
         uploaderMap?[PubspecKeys.storeExtraBuildParameters],
       ),
+      extraBuildEnvironment: _parseEnvironment(
+        uploaderMap?[PubspecKeys.extraBuildEnvironment],
+      ),
+      appDistributionExtraBuildEnvironment: _parseEnvironment(
+        uploaderMap?[PubspecKeys.appDistributionExtraBuildEnvironment],
+      ),
+      storeExtraBuildEnvironment: _parseEnvironment(
+        uploaderMap?[PubspecKeys.storeExtraBuildEnvironment],
+      ),
       useParallelUpload: uploaderMap?[PubspecKeys.useParallelUpload] ?? true,
       enableLogFileCreation:
           uploaderMap?[PubspecKeys.enableLogFileCreation] ?? false,
       uploadRetryCount: _parseRetryCount(
         uploaderMap?[PubspecKeys.uploadRetryCount],
       ),
+      pluginStubs: _parsePluginStubs(
+        uploaderMap?[PubspecKeys.pluginStubs],
+        prunedAssets: uploaderMap?[PubspecKeys.prunedAssets],
+        prunedFonts: uploaderMap?[PubspecKeys.prunedFonts],
+      ),
+      allowedPluginsPath: uploaderMap?[PubspecKeys.allowedPluginsPath],
+      verifyPluginStubs: uploaderMap?[PubspecKeys.verifyPluginStubs] ?? true,
     );
   }
 
+  static PluginStubConfig _parsePluginStubs(
+    Map<dynamic, dynamic>? map, {
+    Map<dynamic, dynamic>? prunedAssets,
+    Map<dynamic, dynamic>? prunedFonts,
+  }) {
+    return PluginStubConfig(
+      all: _parseIterableToList<String>(map?[PubspecKeys.all]) ?? const [],
+      ios: _parseIterableToList<String>(map?[PubspecKeys.ios]) ?? const [],
+      android:
+          _parseIterableToList<String>(map?[PubspecKeys.android]) ?? const [],
+      prunedAssets: _parseListsByPackage(
+        prunedAssets,
+        key: PubspecKeys.prunedAssets,
+      ),
+      prunedFonts: _parseListsByPackage(
+        prunedFonts,
+        key: PubspecKeys.prunedFonts,
+      ),
+      auto: map?[PubspecKeys.auto] ?? false,
+      keep: _parseIterableToList<String>(map?[PubspecKeys.keep]) ?? const [],
+    );
+  }
+
+  static Map<String, List<String>> _parseListsByPackage(
+    Map<dynamic, dynamic>? map, {
+    required String key,
+  }) => {
+    for (final MapEntry(key: package, :value) in (map ?? const {}).entries)
+      "$package": switch (value) {
+        Iterable() => _parseIterableToList<String>(value)!,
+        _ => throw FormatException(
+          "uploader.$key.$package must be a list, such as [$value]",
+        ),
+      },
+  };
+
   static List<T>? _parseIterableToList<T>(Iterable<dynamic>? elements) {
     return elements == null ? null : List<T>.from(elements);
+  }
+
+  /// YAML reads `YES` and `1` as a bool and an int; a process environment
+  /// takes strings, so every value is written back as text.
+  static Map<String, String>? _parseEnvironment(Map<dynamic, dynamic>? map) {
+    if (map == null) return null;
+    return {
+      for (final MapEntry(:key, :value) in map.entries)
+        '$key': value is bool ? (value ? 'YES' : 'NO') : '$value',
+    };
   }
 
   /// A negative count would mean "never run at all", so it is clamped away.

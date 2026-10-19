@@ -24,7 +24,22 @@ class PubspecKeys {
   static const String appDistributionExtraBuildParameters =
       'appDistributionExtraBuildParameters';
   static const String storeExtraBuildParameters = 'storeExtraBuildParameters';
+  static const String extraBuildEnvironment = 'extraBuildEnvironment';
+  static const String appDistributionExtraBuildEnvironment =
+      'appDistributionExtraBuildEnvironment';
+  static const String storeExtraBuildEnvironment = 'storeExtraBuildEnvironment';
   static const String useParallelUpload = 'useParallelUpload';
   static const String uploadRetryCount = 'uploadRetryCount';
   static const String enableLogFileCreation = 'enableLogFileCreation';
+
+  static const String pluginStubs = 'pluginStubs';
+  static const String all = 'all';
+  static const String ios = 'ios';
+  static const String android = 'android';
+  static const String auto = 'auto';
+  static const String keep = 'keep';
+  static const String prunedAssets = 'prunedAssets';
+  static const String prunedFonts = 'prunedFonts';
+  static const String allowedPluginsPath = 'allowedPluginsPath';
+  static const String verifyPluginStubs = 'verifyPluginStubs';
 }

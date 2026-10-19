@@ -32,10 +32,13 @@ class AndroidHelper {
 
   Future<String?> getPackageName() async {
     try {
-      const gradlePath = "android/app/build.gradle";
-      final lineList = await _fileHelper.readFileLines(gradlePath);
+      for (final gradlePath in const [
+        "android/app/build.gradle",
+        "android/app/build.gradle.kts",
+      ]) {
+        final lineList = await _fileHelper.readFileLines(gradlePath);
+        if (lineList == null) continue;
 
-      if (lineList != null) {
         bool defaultConfigFound = false;
 
         for (var line in lineList) {
@@ -57,7 +60,9 @@ class AndroidHelper {
         }
       }
 
-      throw Exception("applicationId not found in build.gradle");
+      throw Exception(
+        "applicationId not found in build.gradle or build.gradle.kts",
+      );
     } catch (e) {
       Printer.error("error occurred while reading package name: $e");
       return null;
