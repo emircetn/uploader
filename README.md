@@ -38,6 +38,7 @@ dev_dependencies:
 dart run uploader              # asks for confirmation before it starts
 dart run uploader --yes        # no prompt, for CI
 dart run uploader --dry-run    # prints every command without running any
+dart run uploader --audit      # reports which plugins the Dart code reaches, uploads nothing
 dart run uploader --help
 ```
 
@@ -160,6 +161,163 @@ only strand an artifact that was built successfully.
 It needs `unzip` on the `PATH`. With no archive on disk nothing is printed, so
 `--dry-run` is unaffected; if the archive is there but cannot be read, the run
 says the size was not checked instead of staying quiet.
+
+## Trimming plugins and assets
+
+Flutter tree-shakes Dart code nobody calls, but not native code: every plugin
+in `pubspec.lock` is registered and its pods, AARs, frameworks and manifest
+permissions are built into the app, called or not. The same holds for the
+assets a package declares. An app that depends on a large kit ships all of it.
+
+```yaml
+uploader:
+  pluginStubs: # native side left out of the builds
+    auto: true # also every plugin the analysis finds unused
+    keep: # never stubbed by auto
+      - google_mobile_ads
+    all:
+      - google_sign_in
+      - workmanager
+    ios: # still built on Android
+      - media_kit_libs_ios_video
+    android: []
+  prunedAssets: # glob patterns, relative to each package's root
+    paywall_kit:
+      - assets/videos/**
+  prunedFonts: # font families each package declares
+    phosphor_flutter:
+      - PhosphorThin
+  allowedPluginsPath: tool/allowed_plugins.yaml
+  verifyPluginStubs: true # default: true
+```
+
+### Plugin stubs
+
+Before building, a run copies each listed package from the pub cache into
+`build/uploader/plugin_stubs/`, removes its native folders and its
+`flutter: plugin:` declaration for the listed platforms, and points
+`dependency_overrides` at the copy through a generated `pubspec_overrides.yaml`.
+The Dart API stays exactly as it is, so every package that imports it still
+compiles; Flutter just no longer sees a plugin. Federated implementations
+(`google_sign_in_ios`, `google_sign_in_android`) leave the graph with it, so
+listing the app-facing package is enough. An implementation only a platform
+uploader does not build shares, such as `shared_preferences_foundation` for
+iOS and macOS, leaves too. One both Android and iOS use stays while the other
+platform still builds it, and the run stops until it is stubbed as well.
+Symbolic links in a package, such as `ios/Classes` pointing at
+`../darwin/Classes`, are copied as links.
+
+The copy is made from whatever version `pubspec.lock` resolves on every run,
+so an update of the package needs nothing from you. When the builds finish, or
+the run fails or is interrupted, `pubspec_overrides.yaml`, `pubspec.lock`, the
+`Podfile.lock` and the stub folders are put back. Nothing is committed. A run
+that ends up stubbing nothing keeps what its builds changed in those files, as
+a plain build would. A run killed outright, without a signal to restore on, is
+restored by the next run; a lockfile changed after it was killed, by a
+`pub upgrade` or `pod update` for instance, is left as it is and reported.
+
+Pub workspace members (`resolution: workspace`) are not supported yet: their
+lockfile, package config and overrides live in the workspace root, so a run
+with stubs, pruned assets or pruned fonts stops before it builds anything.
+
+A stub that is called anyway throws `MissingPluginException`. That is why
+`verifyPluginStubs` is on by default: before anything is stubbed, each platform
+a stub strips is built once with `--analyze-size`, and the run stops if the AOT
+snapshot holds any Dart code of a stubbed package. Code the AOT compiler
+kept is code some path can still call; code it dropped can never call into the
+native side. A one-line method the compiler inlined into its caller still
+counts: it leaves its function object in the snapshot. The analysis build
+reuses the release build's parameters, without `--obfuscate` and
+`--split-debug-info`, which the analysis cannot read or take. DWARF stack
+traces drop those function objects, so a run whose parameters still turn them
+on, through `--extra-gen-snapshot-options=--dwarf-stack-traces`, stops.
+With `uploadType: all`, App Distribution and store builds whose parameters
+still differ, such as a `--dart-define` only one of them sets, are analysed
+separately, and a plugin either of them reaches counts as reached.
+Turn it off only if the extra build per platform is a cost you have measured
+and accepted.
+
+### Finding what to stub
+
+`dart run uploader --audit` runs the same analysis build for every platform in
+`platform` and prints one line per registered plugin. It only reports: nothing
+is stubbed, `allowedPluginsPath` is neither checked nor written, and the
+project is left as it was found.
+
+```
+[audit] 41 plugins registered on ios
+  url_launcher_ios                             6.9 KB  live
+  google_sign_in_ios                            523 B  unused: no Dart code reaches it
+  google_mobile_ads                                    the app's native code imports it
+  media_kit_libs_ios_video                             native only, check by hand
+  audio_session                                        a plugin that stays depends on it
+  gma_mediation_applovin                               depends on a plugin that stays, which may load it
+  firebase_messaging                           2.1 KB  runs at startup, never stubbed
+[audit] can be stubbed on ios: google_sign_in_ios, workmanager
+```
+
+Only `unused` is a verdict: the Dart code that could call the plugin is gone.
+Everything else stays:
+
+- plugins the app's own native code imports, found in `ios/Runner` and
+  `android/app/src` by the plugin's module or Android package; the generated
+  plugin registrant does not count
+- packages with no Dart entry point, whose native library is loaded by another
+  package (`media_kit_libs_*`); list them by hand once you know they are unused
+- every plugin a plugin that stays depends on, since it may link its native code
+- every plugin that depends on a plugin that is live, imported by the app's
+  native code, kept or run at startup, since that plugin's native SDK may load
+  it by class name: Google Mobile Ads loads its mediation adapters
+  (`gma_mediation_*`) that way, and the app never calls their Dart API. A
+  native only package or a plugin kept only for a dependent loads nothing, so
+  depending on `flutter_plugin_android_lifecycle` protects no plugin
+- SDKs that work at startup without being called: `firebase_*`,
+  `facebook_app_events`, `appsflyer_sdk`, `adapty_flutter`, `newrelic_mobile`
+
+### Automatic stubs
+
+With `auto: true` every run does the audit's analysis build per platform before
+building, and stubs each plugin the audit marks `unused` on that platform, on
+top of the ones listed by hand. A plugin unused on both platforms is stubbed on
+both. A plugin listed by hand keeps the platforms it is listed for.
+
+The analysis only sees Dart. A plugin the app reaches only through native code
+the scan cannot see goes in `keep`: an SDK the app imports by its own module
+name (`import GoogleMobileAds` rather than `import google_mobile_ads`), or one
+started or loaded by class name natively without depending on a plugin that
+stays, such as an ad network adapter wired up only in native code. A stubbed
+SDK of that kind fails silently, an ad network that never fills for example,
+so smoke test the app after turning `auto` on, and again when the stubbed list
+in the run output changes.
+
+### Pruned assets
+
+`prunedAssets` works the same way: the package's copy declares every asset it
+declared before except the files matching the patterns, so Flutter never
+bundles them on either platform. A folder entry is replaced by the files it
+keeps, and the pruned files lose their `2.0x`/`3.0x` variants too. A pruned
+asset that is loaded anyway fails as any missing asset does, so prune only what
+the app never shows. Patterns that match nothing are reported.
+
+### Pruned fonts
+
+`prunedFonts` drops whole font families from a package's `flutter: fonts`
+through the same copy, so their files are not bundled on either platform. It
+covers what `--no-tree-shake-icons` keeps and what icon tree shaking never
+touches: a family no constant `IconData` refers to is bundled in full, used or
+not. A glyph of a pruned family renders as an empty box instead of failing, so
+check that nothing reaches the family first, for example that its icon class
+is missing from the `--analyze-size` output. Families a package does not
+declare are reported.
+
+### Allowed plugins
+
+With `allowedPluginsPath` set, a run stops before building when a platform
+registers a plugin the file does not list, so a dependency update cannot add
+native code unnoticed. The first run writes the file from the plugins
+registered then; commit it. Plugins listed but no longer registered are
+reported so the file can shrink. The check is made after stubbing, so stubbed
+plugins do not belong in it.
 
 
 # Collaborators

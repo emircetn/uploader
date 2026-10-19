@@ -206,6 +206,9 @@ class UploadHelper {
       useParallelUpload: pubspecParameters.useParallelUpload,
       enableLogFileCreation: pubspecParameters.enableLogFileCreation,
       uploadRetryCount: pubspecParameters.uploadRetryCount,
+      pluginStubs: pubspecParameters.pluginStubs,
+      allowedPluginsPath: pubspecParameters.allowedPluginsPath,
+      verifyPluginStubs: pubspecParameters.verifyPluginStubs,
       cliOptions: cliOptions,
     );
   }

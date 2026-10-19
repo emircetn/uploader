@@ -3,6 +3,7 @@ import 'package:uploader/src/config/app_distribution/app_distribution_config.dar
 import 'package:uploader/src/config/ios/ios_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/cli_options.dart';
+import 'package:uploader/src/model/plugin_stub_config.dart';
 
 class UploaderConfig {
   final UploadType uploadType;
@@ -24,6 +25,10 @@ class UploaderConfig {
 
   final int uploadRetryCount;
 
+  final PluginStubConfig pluginStubs;
+  final String? allowedPluginsPath;
+  final bool verifyPluginStubs;
+
   final CliOptions cliOptions;
 
   UploaderConfig({
@@ -38,10 +43,21 @@ class UploaderConfig {
     required this.useParallelUpload,
     required this.enableLogFileCreation,
     this.uploadRetryCount = 2,
+    this.pluginStubs = const PluginStubConfig(),
+    this.allowedPluginsPath,
+    this.verifyPluginStubs = true,
     this.cliOptions = const CliOptions(),
   });
 
   bool get isDryRun => cliOptions.dryRun;
+
+  bool get isAudit => cliOptions.audit;
+
+  /// The targets a run builds, each with its own [buildParametersFor].
+  List<BuildTarget> get builtTargets => [
+    if (uploadType.availableOnAppDistribution) BuildTarget.appDistribution,
+    if (uploadType.availableOnStore) BuildTarget.store,
+  ];
 
   /// The full parameter list a build for [target] is run with. Merging lives
   /// here so no caller has to remember the order.

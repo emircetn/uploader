@@ -156,4 +156,102 @@ uploader:
       "--dart-define=B=2",
     ]);
   });
+
+  group('plugin stubs', () {
+    test('each platform list is read', () {
+      final params = parse('''
+uploader:
+  pluginStubs:
+    all:
+      - google_sign_in
+    ios:
+      - media_kit_libs_ios_video
+''');
+
+      expect(params.pluginStubs.strippedPlatforms, {
+        "media_kit_libs_ios_video": AppPlatform.ios,
+        "google_sign_in": AppPlatform.all,
+      });
+    });
+
+    test('automatic stubs and the plugins they keep are read', () {
+      final params = parse('''
+uploader:
+  pluginStubs:
+    auto: true
+    keep:
+      - google_mobile_ads
+''');
+
+      expect(params.pluginStubs.auto, isTrue);
+      expect(params.pluginStubs.keep, ["google_mobile_ads"]);
+    });
+
+    test('no pluginStubs key stubs nothing', () {
+      expect(parse('uploader:\n  platform: all\n').pluginStubs.isEmpty, isTrue);
+    });
+
+    test('pruned assets are read per package', () {
+      final params = parse('''
+uploader:
+  prunedAssets:
+    paywall_kit:
+      - assets/videos/**
+''');
+
+      expect(params.pluginStubs.prunedAssets, {
+        "paywall_kit": ["assets/videos/**"],
+      });
+      expect(params.pluginStubs.isEmpty, isFalse);
+    });
+
+    test('pruned fonts are read per package', () {
+      final params = parse('''
+uploader:
+  prunedFonts:
+    phosphor_flutter:
+      - PhosphorThin
+''');
+
+      expect(params.pluginStubs.prunedFonts, {
+        "phosphor_flutter": ["PhosphorThin"],
+      });
+      expect(params.pluginStubs.isEmpty, isFalse);
+    });
+
+    test('a package entry that is not a list stops the parse', () {
+      expect(
+        () => parse('''
+uploader:
+  prunedFonts:
+    phosphor_icons: PhosphorLight
+'''),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            "message",
+            contains("uploader.prunedFonts.phosphor_icons must be a list"),
+          ),
+        ),
+      );
+    });
+
+    test('stubs are verified and plugins unchecked by default', () {
+      final params = parse('uploader:\n  platform: all\n');
+
+      expect(params.verifyPluginStubs, isTrue);
+      expect(params.allowedPluginsPath, isNull);
+    });
+
+    test('the guard settings are read', () {
+      final params = parse('''
+uploader:
+  allowedPluginsPath: tool/allowed_plugins.yaml
+  verifyPluginStubs: false
+''');
+
+      expect(params.allowedPluginsPath, "tool/allowed_plugins.yaml");
+      expect(params.verifyPluginStubs, isFalse);
+    });
+  });
 }

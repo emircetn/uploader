@@ -19,6 +19,7 @@ dependencies:
   googleapis_auth: ^2.3.3
   googleapis: ^17.0.0
   dio: ^5.0.0
+  glob: ^2.1.0
 
 dev_dependencies:
   lints: ^6.0.0

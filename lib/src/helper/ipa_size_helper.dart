@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:uploader/src/util/string_utils.dart';
+
 /// The App Store's over-the-air download limit.
 ///
 /// Sizes in this file are decimal MB (bytes / 1e6). Reading them as MiB moves
@@ -11,7 +13,6 @@ const int appStoreSizeLimitMb = 200;
 /// warning still arrives while there is room to drop something.
 const int appStoreSizeWarningMarginMb = 15;
 
-const int _bytesPerMb = 1000000;
 const int _largestEntryCount = 15;
 const int _flutterAssetsDepth = 3;
 const String _payloadPrefix = "Payload/";
@@ -39,7 +40,7 @@ class IpaSizeEntry {
 
   const IpaSizeEntry({required this.name, required this.bytes});
 
-  double get sizeInMb => bytes / _bytesPerMb;
+  double get sizeInMb => bytes / StringUtils.bytesPerMegabyte;
 }
 
 class IpaSizeReport {
@@ -59,7 +60,7 @@ class IpaSizeReport {
     required this.largestEntries,
   });
 
-  double get payloadSizeInMb => payloadBytes / _bytesPerMb;
+  double get payloadSizeInMb => payloadBytes / StringUtils.bytesPerMegabyte;
 
   double get overLimitMb => payloadSizeInMb - appStoreSizeLimitMb;
 

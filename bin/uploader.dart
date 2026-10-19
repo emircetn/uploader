@@ -23,6 +23,14 @@ void main(List<String> arguments) async {
       negatable: false,
       help: 'Print the commands that would run without running any of them.',
     )
+    ..addFlag(
+      'audit',
+      negatable: false,
+      help:
+          'Build once per platform for code size analysis and report which '
+          'plugins the Dart code can still reach. Nothing is stubbed or '
+          'uploaded.',
+    )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show this help text.')
     ..addFlag('version', negatable: false, help: 'Print the uploader version.');
 
@@ -43,6 +51,7 @@ void main(List<String> arguments) async {
   final cliOptions = CliOptions(
     skipConfirmation: args.flag('yes'),
     dryRun: args.flag('dry-run'),
+    audit: args.flag('audit'),
   );
 
   final pubspecHelper = PubspecHelper();
