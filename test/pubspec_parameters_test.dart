@@ -143,6 +143,26 @@ uploader:
     expect(params.storeExtraBuildParameters, ["--store-only"]);
   });
 
+  test('per target build environments are read as strings', () {
+    final params = parse('''
+uploader:
+  extraBuildEnvironment:
+    COUNT: 2
+  appDistributionExtraBuildEnvironment:
+    FLUTTER_XCODE_STAGING: YES
+    FLAG: true
+  storeExtraBuildEnvironment:
+    MODE: store
+''');
+
+    expect(params.extraBuildEnvironment, {'COUNT': '2'});
+    expect(params.appDistributionExtraBuildEnvironment, {
+      'FLUTTER_XCODE_STAGING': 'YES',
+      'FLAG': 'YES',
+    });
+    expect(params.storeExtraBuildEnvironment, {'MODE': 'store'});
+  });
+
   test('extra build parameters keep every element', () {
     final params = parse('''
 uploader:

@@ -6,12 +6,18 @@ UploaderConfig configWith({
   List<String>? common,
   List<String>? appDistribution,
   List<String>? store,
+  Map<String, String>? commonEnv,
+  Map<String, String>? appDistributionEnv,
+  Map<String, String>? storeEnv,
 }) => UploaderConfig(
   uploadType: UploadType.all,
   platform: AppPlatform.all,
   extraBuildParameters: common,
   appDistributionExtraBuildParameters: appDistribution,
   storeExtraBuildParameters: store,
+  extraBuildEnvironment: commonEnv,
+  appDistributionExtraBuildEnvironment: appDistributionEnv,
+  storeExtraBuildEnvironment: storeEnv,
   useParallelUpload: true,
   enableLogFileCreation: false,
 );
@@ -58,6 +64,37 @@ void main() {
         "--common",
       ]);
       expect(config.buildParametersFor(BuildTarget.store), ["--common"]);
+    });
+  });
+
+  group('buildEnvironmentFor', () {
+    test('a target gets the common map and its own on top', () {
+      final config = configWith(
+        commonEnv: {'A': '1', 'B': 'common'},
+        appDistributionEnv: {'B': 'appdist'},
+        storeEnv: {'C': 'store'},
+      );
+
+      expect(config.buildEnvironmentFor(BuildTarget.appDistribution), {
+        'A': '1',
+        'B': 'appdist',
+      });
+      expect(config.buildEnvironmentFor(BuildTarget.store), {
+        'A': '1',
+        'B': 'common',
+        'C': 'store',
+      });
+    });
+
+    test('one target\'s variable never reaches the other', () {
+      final config = configWith(
+        appDistributionEnv: {'FLUTTER_XCODE_STAGING': 'YES'},
+      );
+
+      expect(config.buildEnvironmentFor(BuildTarget.store), isEmpty);
+      expect(config.buildEnvironmentFor(BuildTarget.appDistribution), {
+        'FLUTTER_XCODE_STAGING': 'YES',
+      });
     });
   });
 }

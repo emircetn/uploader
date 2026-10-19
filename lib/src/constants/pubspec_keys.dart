@@ -24,6 +24,10 @@ class PubspecKeys {
   static const String appDistributionExtraBuildParameters =
       'appDistributionExtraBuildParameters';
   static const String storeExtraBuildParameters = 'storeExtraBuildParameters';
+  static const String extraBuildEnvironment = 'extraBuildEnvironment';
+  static const String appDistributionExtraBuildEnvironment =
+      'appDistributionExtraBuildEnvironment';
+  static const String storeExtraBuildEnvironment = 'storeExtraBuildEnvironment';
   static const String useParallelUpload = 'useParallelUpload';
   static const String uploadRetryCount = 'uploadRetryCount';
   static const String enableLogFileCreation = 'enableLogFileCreation';

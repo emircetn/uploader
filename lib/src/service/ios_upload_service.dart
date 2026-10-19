@@ -62,6 +62,7 @@ class IosUploadService {
       extraBuildParameters: config.buildParametersFor(
         BuildTarget.appDistribution,
       ),
+      environment: config.buildEnvironmentFor(BuildTarget.appDistribution),
     );
     if (!isSuccess) {
       return Printer.error(
@@ -110,6 +111,7 @@ class IosUploadService {
     bool isSuccess = await processService.buildIpa(
       type: IPAType.appStore,
       extraBuildParameters: config.buildParametersFor(BuildTarget.store),
+      environment: config.buildEnvironmentFor(BuildTarget.store),
     );
     if (!isSuccess) {
       return Printer.error(

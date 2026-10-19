@@ -63,6 +63,7 @@ class AndroidUploadService {
     final isSuccess = await processService.buildAbb(
       skslPath: config.playStoreConfig!.skslPath,
       extraBuildParameters: config.buildParametersFor(target),
+      environment: config.buildEnvironmentFor(target),
     );
 
     if (!isSuccess) {
@@ -85,6 +86,7 @@ class AndroidUploadService {
       extraBuildParameters: config.buildParametersFor(
         BuildTarget.appDistribution,
       ),
+      environment: config.buildEnvironmentFor(BuildTarget.appDistribution),
     );
 
     if (!isSuccess) {

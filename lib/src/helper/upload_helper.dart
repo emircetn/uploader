@@ -203,6 +203,10 @@ class UploadHelper {
       appDistributionExtraBuildParameters:
           pubspecParameters.appDistributionExtraBuildParameters,
       storeExtraBuildParameters: pubspecParameters.storeExtraBuildParameters,
+      extraBuildEnvironment: pubspecParameters.extraBuildEnvironment,
+      appDistributionExtraBuildEnvironment:
+          pubspecParameters.appDistributionExtraBuildEnvironment,
+      storeExtraBuildEnvironment: pubspecParameters.storeExtraBuildEnvironment,
       useParallelUpload: pubspecParameters.useParallelUpload,
       enableLogFileCreation: pubspecParameters.enableLogFileCreation,
       uploadRetryCount: pubspecParameters.uploadRetryCount,

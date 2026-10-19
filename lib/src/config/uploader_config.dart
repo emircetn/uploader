@@ -20,6 +20,14 @@ class UploaderConfig {
   final List<String>? appDistributionExtraBuildParameters;
   final List<String>? storeExtraBuildParameters;
 
+  /// Environment variables every build process receives.
+  final Map<String, String>? extraBuildEnvironment;
+
+  /// Environment variables only that target's builds receive, on top of
+  /// [extraBuildEnvironment].
+  final Map<String, String>? appDistributionExtraBuildEnvironment;
+  final Map<String, String>? storeExtraBuildEnvironment;
+
   final bool useParallelUpload;
   final bool enableLogFileCreation;
 
@@ -40,6 +48,9 @@ class UploaderConfig {
     this.extraBuildParameters,
     this.appDistributionExtraBuildParameters,
     this.storeExtraBuildParameters,
+    this.extraBuildEnvironment,
+    this.appDistributionExtraBuildEnvironment,
+    this.storeExtraBuildEnvironment,
     required this.useParallelUpload,
     required this.enableLogFileCreation,
     this.uploadRetryCount = 2,
@@ -68,4 +79,14 @@ class UploaderConfig {
       BuildTarget.store => storeExtraBuildParameters,
     },
   ];
+
+  /// The environment a build for [target] runs with, on top of the shell's.
+  /// A target's own value wins over [extraBuildEnvironment].
+  Map<String, String> buildEnvironmentFor(BuildTarget target) => {
+    ...?extraBuildEnvironment,
+    ...?switch (target) {
+      BuildTarget.appDistribution => appDistributionExtraBuildEnvironment,
+      BuildTarget.store => storeExtraBuildEnvironment,
+    },
+  };
 }

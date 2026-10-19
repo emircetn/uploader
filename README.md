@@ -105,6 +105,25 @@ With `uploadType: all` in `abb` mode that means two app bundles are produced.
 The cost is one extra build; the gain is that a diagnostic `--dart-define`
 meant for testers never reaches the binary that goes to the store.
 
+### Build environment
+
+Some switches are not `flutter build` flags but environment variables, such as
+Flutter's `FLUTTER_XCODE_<SETTING>`, which becomes an Xcode build setting on
+every target, pods included. Three optional maps mirror the parameter lists:
+
+```yaml
+uploader:
+  extraBuildEnvironment: {} # every build
+  appDistributionExtraBuildEnvironment: # App Distribution builds only
+    FLUTTER_XCODE_STAGING: "YES"
+  storeExtraBuildEnvironment: {} # store builds only
+```
+
+A build process inherits the shell's environment and gets the common map with
+its own target's map on top; a target's value wins. Values are written as text:
+a YAML `true` or `yes` becomes `YES`, a number its digits. `--dry-run` prints the
+variables in front of each build command.
+
 The confirmation screen prints the resolved list for each target before
 anything is built, so a flag written to the wrong list is visible up front.
 
