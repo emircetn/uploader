@@ -3,13 +3,18 @@ import "dart:io";
 
 import "package:uploader/src/config/uploader_config.dart";
 import "package:uploader/src/enum/enums.dart";
+import "package:uploader/src/helper/app_distribution_helper.dart";
+import "package:uploader/src/helper/firebase_account_helper.dart";
 import "package:uploader/src/helper/parse_helper.dart";
+import "package:uploader/src/helper/secret_helper.dart";
 import "package:uploader/src/model/app_detail.dart";
+import "package:uploader/src/model/symbols_config.dart";
 import "package:uploader/src/service/android_upload_service.dart";
 import "package:uploader/src/service/ios_upload_service.dart";
 import "package:uploader/src/service/plugin_guard_service.dart";
 import "package:uploader/src/service/plugin_stub_service.dart";
 import "package:uploader/src/service/process_service.dart";
+import "package:uploader/src/service/symbol/symbol_service.dart";
 import 'package:uploader/src/util/printer.dart';
 import "package:uploader/src/util/string_utils.dart";
 
@@ -40,7 +45,19 @@ class UploaderManager {
     } else {
       if (!await pluginStubService.recoverInterruptedRun()) return false;
 
-      showProjectDetails(appDetail);
+      // Made before the details are confirmed, so an archive path that
+      // cannot be resolved stops the run before anything is built.
+      final SymbolService? symbolService;
+      try {
+        symbolService = config.isAudit ? null : _createSymbolService(appDetail);
+      } on StateError catch (e) {
+        return Printer.error("[symbols] ${e.message}");
+      }
+
+      showProjectDetails(
+        appDetail,
+        crashlytics: await _resolveCrashlyticsTarget(),
+      );
 
       if (config.isDryRun) {
         Printer.warning(
@@ -83,22 +100,45 @@ class UploaderManager {
           analysis: analysis,
         );
         if (!isSafe) return false;
-        return await _runUploads();
+
+        try {
+          final isUploaded = await _runUploads(symbolService);
+          // After the distribution uploads, so a slow or failing crash
+          // reporter never holds back a release.
+          final isSymbolsUploaded =
+              await symbolService?.uploadArchived() ?? true;
+          return isUploaded && isSymbolsUploaded;
+        } finally {
+          symbolService?.prune();
+        }
       } finally {
         await pluginStubService.restore();
       }
     }
   }
 
-  Future<bool> _runUploads() async {
+  SymbolService? _createSymbolService(AppDetail appDetail) {
+    final symbols = config.symbols;
+    if (symbols == null) return null;
+    return SymbolService(
+      config: symbols,
+      appDetail: appDetail,
+      retryCount: config.uploadRetryCount,
+      dryRun: config.isDryRun,
+    );
+  }
+
+  Future<bool> _runUploads(SymbolService? symbolService) async {
     final process = [
       if (config.platform.availableOnAndroid)
         () => AndroidUploadService(
           config,
+          symbolService: symbolService,
         ).upload(config.appDistributionConfig?.accountConfig.androidId),
       if (config.platform.availableOnIos)
         () => IosUploadService(
           config,
+          symbolService: symbolService,
         ).upload(config.appDistributionConfig?.accountConfig.iosId),
     ];
     if (config.useParallelUpload) {
@@ -115,7 +155,25 @@ class UploaderManager {
     return true;
   }
 
-  void showProjectDetails(AppDetail appDetail) {
+  /// What Crashlytics uploads will use, resolved the way the uploads resolve
+  /// it, so a wrong Firebase project or account shows before the build.
+  Future<CrashlyticsTarget?> _resolveCrashlyticsTarget() async {
+    if (config.symbols?.crashlytics != true || config.isAudit) return null;
+
+    final account = await AppDistributionHelper().getAccountConfig(
+      config.platform,
+    );
+    return CrashlyticsTarget(
+      androidAppId: account?.androidId,
+      iosAppId: account?.iosId,
+      account: await FirebaseAccountHelper().describe(Platform.environment),
+    );
+  }
+
+  void showProjectDetails(
+    AppDetail appDetail, {
+    CrashlyticsTarget? crashlytics,
+  }) {
     final platform = config.platform;
     final uploadType = config.uploadType;
 
@@ -190,6 +248,72 @@ class UploaderManager {
       for (final entry in prunedFonts.entries) {
         info.writeln(_formatField(entry.key, entry.value.join(", ")));
       }
+    }
+
+    final symbols = config.symbols;
+    if (symbols != null && !config.isAudit) {
+      info.writeln();
+      info.writeln("---- Symbols ----");
+      info.writeln(_formatField("Archive", _archivePath(symbols)));
+      info.writeln(
+        _formatField(
+          "Upload To",
+          symbols.destinationNames.isEmpty
+              ? "(none, archive only)"
+              : symbols.destinationNames.join(", "),
+        ),
+      );
+      if (crashlytics != null) {
+        String appId(String? id, String file) =>
+            id == null ? "NOT FOUND in $file" : "$id ($file)";
+
+        if (platform.availableOnAndroid) {
+          info.writeln(
+            _formatField(
+              "Crashlytics android",
+              appId(
+                crashlytics.androidAppId,
+                "android/app/google-services.json",
+              ),
+            ),
+          );
+        }
+        if (platform.availableOnIos) {
+          info.writeln(
+            _formatField(
+              "Crashlytics ios",
+              appId(
+                crashlytics.iosAppId,
+                "ios/Runner/GoogleService-Info.plist",
+              ),
+            ),
+          );
+        }
+        info.writeln(
+          _formatField(
+            "Firebase account",
+            crashlytics.account ?? "NOT LOGGED IN (run `firebase login`)",
+          ),
+        );
+      }
+      if (symbols.newRelic case final newRelic?) {
+        for (final platform in [AppPlatform.android, AppPlatform.ios]) {
+          final source = newRelic.tokenFor(platform);
+          if (source == null || !platform.isIn(config.platform)) continue;
+          info.writeln(
+            _formatField(
+              "New Relic ${platform.value} token",
+              "${source.description} (${_hasToken(source) ? "found" : "NOT FOUND"})",
+            ),
+          );
+        }
+      }
+      info.writeln(
+        _formatField(
+          "On Upload Failure",
+          symbols.failOnUploadError ? "fail the run" : "warn, retry later",
+        ),
+      );
     }
 
     final allowedPluginsPath = config.allowedPluginsPath;
@@ -276,10 +400,37 @@ class UploaderManager {
     Printer.info("$info");
   }
 
+  String _archivePath(SymbolsConfig symbols) {
+    try {
+      return symbols.resolveArchivePath(
+        projectRoot: Directory.current.path,
+        environment: Platform.environment,
+      );
+    } on StateError {
+      return symbols.archivePath;
+    }
+  }
+
+  /// Whether the token is where [source] says, without printing it.
+  bool _hasToken(TokenSource source) =>
+      SecretHelper(
+        projectRoot: Directory.current.path,
+        environment: Platform.environment,
+      ).resolve(source) !=
+      null;
+
   String _formatParameters(List<String> parameters) =>
       parameters.isEmpty ? "(none)" : parameters.join(" ");
 
   String _formatField(String label, String value) {
     return "$label: ".padRight(25) + value;
   }
+}
+
+class CrashlyticsTarget {
+  final String? androidAppId;
+  final String? iosAppId;
+  final String? account;
+
+  const CrashlyticsTarget({this.androidAppId, this.iosAppId, this.account});
 }

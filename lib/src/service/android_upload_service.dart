@@ -7,13 +7,18 @@ import 'package:uploader/src/config/uploader_config.dart';
 import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/service/process_service.dart';
+import 'package:uploader/src/service/symbol/symbol_service.dart';
 import 'package:uploader/src/util/printer.dart';
 import 'package:uploader/src/util/retry_utils.dart';
 
 class AndroidUploadService {
   final UploaderConfig config;
 
-  AndroidUploadService(this.config);
+  /// Archives and uploads each build's symbols; null when `symbols` is not
+  /// configured.
+  final SymbolService? symbolService;
+
+  AndroidUploadService(this.config, {this.symbolService});
 
   late final processService = ProcessService(dryRun: config.isDryRun);
 
@@ -73,10 +78,12 @@ class AndroidUploadService {
       );
     }
 
-    return Printer.success(
+    Printer.success(
       "[android] ABB file created: "
       "${PathConstants.abbPath}",
     );
+
+    return await _handleSymbols(target);
   }
 
   Future<bool> buildApk() async {
@@ -96,9 +103,23 @@ class AndroidUploadService {
       );
     }
 
-    return Printer.success(
+    Printer.success(
       "[android] APK file created: "
       "${PathConstants.apkPath}",
+    );
+
+    return await _handleSymbols(BuildTarget.appDistribution);
+  }
+
+  /// Runs right after a build, before anything else can overwrite what it
+  /// left in `build/`.
+  Future<bool> _handleSymbols(BuildTarget target) async {
+    final symbolService = this.symbolService;
+    if (symbolService == null) return true;
+    return await symbolService.handleBuild(
+      platform: AppPlatform.android,
+      target: target,
+      buildParameters: config.buildParametersFor(target),
     );
   }
 

@@ -23,6 +23,13 @@ enum AppPlatform {
 
   bool get availableOnAndroid => this != ios;
   bool get availableOnIos => this != android;
+
+  /// Whether a run on [platform] builds this single platform.
+  bool isIn(AppPlatform platform) => switch (this) {
+    android => platform.availableOnAndroid,
+    ios => platform.availableOnIos,
+    all => true,
+  };
 }
 
 enum UploadType {

@@ -42,4 +42,20 @@ class PubspecKeys {
   static const String prunedFonts = 'prunedFonts';
   static const String allowedPluginsPath = 'allowedPluginsPath';
   static const String verifyPluginStubs = 'verifyPluginStubs';
+
+  static const String symbols = 'symbols';
+  static const String archivePath = 'archivePath';
+  static const String keepLast = 'keepLast';
+  static const String failOnUploadError = 'failOnUploadError';
+  static const String crashlytics = 'crashlytics';
+  static const String newRelic = 'newRelic';
+  static const String region = 'region';
+  static const String androidToken = 'androidToken';
+  static const String iosToken = 'iosToken';
+  static const String env = 'env';
+  static const String file = 'file';
+  static const String key = 'key';
+  static const String commands = 'commands';
+  static const String name = 'name';
+  static const String run = 'run';
 }

@@ -3,6 +3,7 @@ import 'package:uploader/src/constants/pubspec_keys.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/data_source.dart';
 import 'package:uploader/src/model/plugin_stub_config.dart';
+import 'package:uploader/src/model/symbols_config.dart';
 
 class PubspecParameters {
   //general
@@ -55,6 +56,10 @@ class PubspecParameters {
   /// can still reach a stubbed plugin before it builds anything it uploads.
   final bool verifyPluginStubs;
 
+  /// Symbol archiving and upload after each build. Null when `symbols` is
+  /// not configured, which leaves runs exactly as they were.
+  final SymbolsConfig? symbols;
+
   bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
   bool get checkAndroidStoreParameters => checkString(playStoreConfigPath);
@@ -85,6 +90,7 @@ class PubspecParameters {
     this.pluginStubs = const PluginStubConfig(),
     this.allowedPluginsPath,
     this.verifyPluginStubs = true,
+    this.symbols,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -182,7 +188,197 @@ class PubspecParameters {
       ),
       allowedPluginsPath: uploaderMap?[PubspecKeys.allowedPluginsPath],
       verifyPluginStubs: uploaderMap?[PubspecKeys.verifyPluginStubs] ?? true,
+      symbols: _parseSymbols(uploaderMap?[PubspecKeys.symbols]),
     );
+  }
+
+  static SymbolsConfig? _parseSymbols(dynamic value) {
+    if (value == null || value == false) return null;
+    if (value == true) return const SymbolsConfig();
+    if (value is! Map) {
+      throw const FormatException(
+        "uploader.symbols must be true or a map, such as {crashlytics: true}",
+      );
+    }
+
+    _checkKeys(value, "symbols", const {
+      PubspecKeys.archivePath,
+      PubspecKeys.keepLast,
+      PubspecKeys.failOnUploadError,
+      PubspecKeys.crashlytics,
+      PubspecKeys.newRelic,
+      PubspecKeys.commands,
+    });
+
+    final keepLast = value[PubspecKeys.keepLast];
+    if (keepLast != null && keepLast is! int) {
+      throw FormatException(
+        "uploader.symbols.keepLast must be a whole number, not $keepLast",
+      );
+    }
+
+    return SymbolsConfig(
+      archivePath:
+          _parseString(value[PubspecKeys.archivePath], "symbols.archivePath") ??
+          SymbolsConfig.defaultArchivePath,
+      keepLast: keepLast ?? SymbolsConfig.defaultKeepLast,
+      failOnUploadError: value[PubspecKeys.failOnUploadError] == true,
+      crashlytics: value[PubspecKeys.crashlytics] == true,
+      newRelic: _parseNewRelic(value[PubspecKeys.newRelic]),
+      commands: _parseSymbolCommands(value[PubspecKeys.commands]),
+    );
+  }
+
+  static NewRelicSymbolsConfig? _parseNewRelic(dynamic value) {
+    if (value == null || value == false) return null;
+    if (value is! Map) {
+      throw const FormatException(
+        "uploader.symbols.newRelic must say where each platform's token is "
+        "read from, such as:\n"
+        "  newRelic:\n"
+        "    androidToken: {env: NEW_RELIC_ANDROID_KEY}\n"
+        "    iosToken: {file: .env, key: NEW_RELIC_IOS_KEY}",
+      );
+    }
+
+    _checkKeys(value, "symbols.newRelic", const {
+      PubspecKeys.region,
+      PubspecKeys.androidToken,
+      PubspecKeys.iosToken,
+    });
+
+    final regionValue = value[PubspecKeys.region];
+    final region = regionValue == null
+        ? NewRelicRegion.us
+        : NewRelicRegion.values.firstWhereOrNull(
+            (region) => region.value == regionValue,
+          );
+    if (region == null) {
+      throw FormatException(
+        "uploader.symbols.newRelic.region must be one of "
+        "${NewRelicRegion.values.map((region) => region.value).join(", ")}, "
+        "not $regionValue",
+      );
+    }
+
+    final androidToken = _parseTokenSource(
+      value[PubspecKeys.androidToken],
+      "symbols.newRelic.androidToken",
+    );
+    final iosToken = _parseTokenSource(
+      value[PubspecKeys.iosToken],
+      "symbols.newRelic.iosToken",
+    );
+    if (androidToken == null && iosToken == null) {
+      throw const FormatException(
+        "uploader.symbols.newRelic needs androidToken, iosToken or both",
+      );
+    }
+
+    return NewRelicSymbolsConfig(
+      region: region,
+      androidToken: androidToken,
+      iosToken: iosToken,
+    );
+  }
+
+  static TokenSource? _parseTokenSource(dynamic value, String key) {
+    if (value == null) return null;
+    if (value is! Map) {
+      throw FormatException(
+        "uploader.$key must be {env: NAME} or {file: path, key: NAME}",
+      );
+    }
+
+    _checkKeys(value, key, const {
+      PubspecKeys.env,
+      PubspecKeys.file,
+      PubspecKeys.key,
+    });
+
+    final env = _parseString(value[PubspecKeys.env], "$key.env");
+    final file = _parseString(value[PubspecKeys.file], "$key.file");
+    final fileKey = _parseString(value[PubspecKeys.key], "$key.key");
+
+    if (env != null && file == null && fileKey == null) {
+      return TokenSource.env(env);
+    }
+    if (env == null && file != null && fileKey != null) {
+      return TokenSource.file(file: file, key: fileKey);
+    }
+    throw FormatException(
+      "uploader.$key must be either {env: NAME} or {file: path, key: NAME}",
+    );
+  }
+
+  static List<SymbolCommand> _parseSymbolCommands(dynamic value) {
+    if (value == null) return const [];
+    if (value is! Iterable) {
+      throw const FormatException(
+        "uploader.symbols.commands must be a list of {name, run, platform}",
+      );
+    }
+
+    final commands = <SymbolCommand>[];
+    for (final (index, command) in value.indexed) {
+      final key = "symbols.commands[$index]";
+      if (command is! Map) {
+        throw FormatException("uploader.$key must be a map with name and run");
+      }
+      _checkKeys(command, key, const {
+        PubspecKeys.name,
+        PubspecKeys.run,
+        PubspecKeys.platform,
+      });
+
+      final run = _parseString(command[PubspecKeys.run], "$key.run");
+      if (run == null) throw FormatException("uploader.$key.run is required");
+
+      commands.add(
+        SymbolCommand(
+          name:
+              _parseString(command[PubspecKeys.name], "$key.name") ??
+              "command ${index + 1}",
+          run: run,
+          platform: _parseCommandPlatform(command[PubspecKeys.platform], index),
+        ),
+      );
+    }
+    return commands;
+  }
+
+  static AppPlatform _parseCommandPlatform(dynamic value, int index) {
+    if (value == null) return AppPlatform.all;
+    return AppPlatform.values.firstWhereOrNull(
+          (platform) => platform.value == value,
+        ) ??
+        (throw FormatException(
+          "uploader.symbols.commands[$index].platform must be one of "
+          "${AppPlatform.values.map((platform) => platform.value).join(", ")}, "
+          "not $value",
+        ));
+  }
+
+  /// Rejects keys [map] should not have, so a typo such as `crashlytic:`
+  /// stops the run instead of quietly turning a feature off.
+  static void _checkKeys(Map map, String key, Set<String> allowed) {
+    final unknown = map.keys
+        .map((k) => "$k")
+        .where((k) => !allowed.contains(k));
+    if (unknown.isNotEmpty) {
+      throw FormatException(
+        "uploader.$key has unknown key(s) ${unknown.join(", ")}; "
+        "allowed: ${allowed.join(", ")}",
+      );
+    }
+  }
+
+  static String? _parseString(dynamic value, String key) {
+    if (value == null) return null;
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException("uploader.$key must be a non-empty string");
+    }
+    return value.trim();
   }
 
   static PluginStubConfig _parsePluginStubs(
