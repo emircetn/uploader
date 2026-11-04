@@ -4,6 +4,7 @@ import 'package:uploader/src/config/ios/ios_config.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/model/cli_options.dart';
 import 'package:uploader/src/model/plugin_stub_config.dart';
+import 'package:uploader/src/model/symbols_config.dart';
 
 class UploaderConfig {
   final UploadType uploadType;
@@ -37,6 +38,9 @@ class UploaderConfig {
   final String? allowedPluginsPath;
   final bool verifyPluginStubs;
 
+  /// Null when symbols are neither archived nor uploaded.
+  final SymbolsConfig? symbols;
+
   final CliOptions cliOptions;
 
   UploaderConfig({
@@ -57,6 +61,7 @@ class UploaderConfig {
     this.pluginStubs = const PluginStubConfig(),
     this.allowedPluginsPath,
     this.verifyPluginStubs = true,
+    this.symbols,
     this.cliOptions = const CliOptions(),
   });
 

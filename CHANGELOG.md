@@ -1,3 +1,17 @@
+## 1.3.0
+
+### Crash symbols
+
+- Added `symbols`: each build's `mapping.txt`, Crashlytics mapping file id, unstripped native libraries, dSYMs and `--split-debug-info` output are compressed into an archive outside the project as soon as the build ends, before the next build of the same run overwrites them. They are uploaded once the run's distribution uploads are done, so a crash reporter never holds back a release. See "Crash symbols" in the README
+- Added `symbols.crashlytics`, `symbols.newRelic` and `symbols.commands`: archived symbols are sent to Firebase Crashlytics, to New Relic (Android mapping tagged with the build's New Relic build id, iOS dSYMs) or through any shell command. Each New Relic token's source, an environment variable or a key in a file, is written in `pubspec.yaml`; the token itself never is
+- A symbol upload that still fails after its retries is recorded as pending and does not fail the run unless `failOnUploadError` is set. Added `--upload-symbols` to retry pending uploads without building
+- Archived runs are filed under the version the build was given, `--build-name` and `--build-number` winning over `pubspec.yaml`
+- Archived runs beyond `keepLast` (default 10) are removed, except up to `keepLast` more runs with an upload still pending. An upload that can never succeed, such as a mapping file without its Crashlytics mapping file id or a destination since removed from `symbols`, is recorded as skipped and does not hold its run
+- Android symbols are read from the variant `--flavor` selects; `--split-debug-info` output is archived per platform; empty folders are treated as not produced
+- New Relic uploads time out when they stall, scaled to the file size, and are retried
+- Unknown keys under `symbols` stop the run before anything is built
+- `--dry-run` masks `--apiKey` and `--apiIssuer` and prints the tester count instead of the list
+
 ## 1.2.0
 
 ### Trimming plugins and assets

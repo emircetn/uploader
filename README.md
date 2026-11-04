@@ -39,6 +39,7 @@ dart run uploader              # asks for confirmation before it starts
 dart run uploader --yes        # no prompt, for CI
 dart run uploader --dry-run    # prints every command without running any
 dart run uploader --audit      # reports which plugins the Dart code reaches, uploads nothing
+dart run uploader --upload-symbols # retries archived symbol uploads that failed
 dart run uploader --help
 ```
 
@@ -180,6 +181,144 @@ only strand an artifact that was built successfully.
 It needs `unzip` on the `PATH`. With no archive on disk nothing is printed, so
 `--dry-run` is unaffected; if the archive is there but cannot be read, the run
 says the size was not checked instead of staying quiet.
+
+## Crash symbols
+
+A release build leaves behind what crash reporters need to make stack traces
+readable: R8's `mapping.txt`, unstripped native libraries, the archive's
+dSYMs and, with `--split-debug-info`, Dart symbols. They live in `build/`,
+so the next build overwrites them. With `uploadType: all` that next build is
+part of the same run: the App Distribution build's symbols are gone before
+the store build has finished.
+
+With a `symbols` section every build's symbols are copied out of `build/`
+as soon as that build ends, and sent to each configured destination once the
+run's App Distribution, TestFlight and Play Console uploads are done, so a
+slow or failing crash reporter never holds back a release:
+
+```yaml
+uploader:
+  symbols:
+    archivePath: ~/.uploader/archive # default
+    keepLast: 10 # runs kept per app. default: 10
+    failOnUploadError: false # default: false
+    crashlytics: true
+    newRelic:
+      region: us # us, eu, jp. default: us
+      androidToken: # where the token is read from, never the token itself
+        env: NEW_RELIC_ANDROID_KEY
+      iosToken:
+        file: .env
+        key: NEW_RELIC_IOS_KEY
+    commands: # any other reporter
+      - name: sentry
+        platform: android # android, ios, all. default: all
+        run: sentry-cli upload-proguard {mapping}
+```
+
+`symbols: true` archives without uploading anywhere. Without a `symbols`
+section a run behaves exactly as before. An unknown key under `symbols`, such
+as a misspelt `crashlytic:`, stops the run before anything is built.
+
+### Archive
+
+```
+~/.uploader/archive/<app>/<version+build>/<run>/<platform>-<target>/
+  mapping.txt.zip
+  crashlytics_mapping_file_id.xml.zip
+  native-libs.zip
+  dart-symbols.zip
+  dSYMs.zip       # the .dSYM bundles at the zip's root
+  manifest.json
+```
+
+The archive is outside the project by default so `flutter clean` cannot take
+it. `archivePath` and a token `file` may start with `~`; a relative path is
+read from the project root. `<version+build>` is the version the build was
+given: `--build-name` and `--build-number` in the build parameters win over
+`pubspec.yaml`, so a CI build number lands in a folder of its own. Each kind of file is compressed into a zip of its own; uploads extract
+them to a temporary folder and remove that afterwards. `manifest.json` records
+the version, git commit, Firebase app id, New Relic build id and the outcome
+of each upload. If a build's symbols cannot be archived, the run stops before
+the next build overwrites them. `zip` and `unzip` have to be on the `PATH`.
+
+Android files are read from the variant the build produced: `release`, or
+`prodRelease` for `--flavor prod`. A folder the build left empty is treated
+as not produced. With `--split-debug-info`, each platform archives only its
+own `app.<platform>-*.symbols` files, so a folder both platforms write to is
+not mixed up between them.
+
+Unstripped native libraries are large, which is why the archive is
+compressed. For a mid-sized app with every ABI, an Android build's 850 MB of
+mapping and native libraries became a 241 MB zip in about 20 seconds, and an
+iOS build's 457 MB of dSYMs a 144 MB zip in about 12. The oldest runs beyond
+`keepLast` are removed at the end of a run. A run with an upload still
+pending outlives them, but only the newest `keepLast` such runs do, so an
+upload that keeps failing, such as one whose token is only set on CI, cannot
+grow the archive forever; removing a run with an upload still pending is
+reported.
+
+### Destinations
+
+| | Android | iOS |
+|---|---|---|
+| `crashlytics` | `mapping.txt` with its mapping file id, native and Dart symbols, through the Firebase CLI, to the app id in `android/app/google-services.json` | dSYMs through `ios/Pods/FirebaseCrashlytics/upload-symbols`, to the app id in `ios/Runner/GoogleService-Info.plist`; Crashlytics reads Dart symbols from the dSYMs |
+| `newRelic` | `mapping.txt`, tagged with the build's New Relic build id. Only with `androidToken` | the archived `dSYMs.zip` as it is, or in batches when it is over New Relic's 600 MB limit. Only with `iosToken` |
+| `commands` | any command, with `{mapping}`, `{crashlyticsMappingId}`, `{nativeLibs}`, `{dartSymbols}`, `{dsyms}`, `{dir}`, `{version}`, `{buildNumber}`, `{platform}`, `{target}` and `{firebaseAppId}` replaced by quoted values | |
+
+Uploads are retried `uploadRetryCount` times. One that still fails does not
+fail the run: the binary has already been built, and its symbols are safe in
+the archive. It is recorded as pending and printed with the command that
+retries it. A run that stops between a build and its symbol uploads leaves
+them pending too. Set `failOnUploadError: true` to stop the run instead. A New
+Relic upload that stalls times out, after a minute plus the time the file
+takes at 256 KB/s, and is retried like any other failure.
+
+An upload is pending only while a retry can still succeed: a network error,
+a token or Firebase app id not found yet, `pod install` not run. What can
+never be sent is recorded as skipped with the reason, such as a mapping file
+built without the Crashlytics Gradle plugin's mapping file id. Skipped
+uploads do not keep a run from being removed.
+
+New Relic only matches a crash to a mapping file tagged with the build id its
+Gradle plugin compiles into the app. The run reads that id from the build and
+uploads a tagged copy; a mapping file uploaded without it is accepted and
+never used.
+
+### Tokens
+
+`pubspec.yaml` says where each New Relic token is read from, so whoever reads
+the configuration can see which data an upload uses; the token itself never
+goes in it. A source is one of:
+
+```yaml
+androidToken:
+  env: NEW_RELIC_ANDROID_KEY # an environment variable, such as a CI secret
+iosToken:
+  file: dart_defines/prod.json # a JSON object or KEY=value lines
+  key: NEW_RELIC_IOS_KEY # (.env, newrelic.properties)
+```
+
+Nothing else is searched. A platform without a token source is not uploaded
+to New Relic, and a token that is not where its source says leaves the upload
+pending with that source named. The confirmation screen lists each source,
+and whether the token is there, before anything is built; the token itself
+is never printed.
+
+### Retrying
+
+```sh
+dart run uploader --upload-symbols
+```
+
+retries every pending upload in the archive. Nothing is built, so it needs
+neither store credentials nor the project's build output; it does need what
+the uploads themselves use: the Firebase CLI signed in, the tokens where
+their sources say, and for iOS Crashlytics `ios/Pods/FirebaseCrashlytics/upload-symbols`.
+A build whose Firebase app id could not be read is read again from
+`google-services.json` or `GoogleService-Info.plist`. A pending upload whose
+destination has since been removed from `symbols` is marked skipped.
+`--dry-run` lists what it would send.
 
 ## Trimming plugins and assets
 
