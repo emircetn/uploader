@@ -6,13 +6,18 @@ import 'package:uploader/src/constants/path_constants.dart';
 import 'package:uploader/src/enum/enums.dart';
 import 'package:uploader/src/helper/ipa_size_helper.dart';
 import 'package:uploader/src/service/process_service.dart';
+import 'package:uploader/src/service/symbol/symbol_service.dart';
 import 'package:uploader/src/util/printer.dart';
 import 'package:uploader/src/util/retry_utils.dart';
 
 class IosUploadService {
   final UploaderConfig config;
 
-  IosUploadService(this.config);
+  /// Archives and uploads each build's symbols; null when `symbols` is not
+  /// configured.
+  final SymbolService? symbolService;
+
+  IosUploadService(this.config, {this.symbolService});
 
   late final processService = ProcessService(dryRun: config.isDryRun);
 
@@ -78,6 +83,8 @@ class IosUploadService {
 
     await _reportIpaSize(ipaName);
 
+    if (!await _handleSymbols(BuildTarget.appDistribution)) return false;
+
     Printer.infoIOS("[ios] IPA(adhoc) uploading to app distribution...");
 
     isSuccess = await RetryUtils.run(
@@ -126,6 +133,8 @@ class IosUploadService {
 
     await _reportIpaSize(ipaName);
 
+    if (!await _handleSymbols(BuildTarget.store)) return false;
+
     Printer.infoIOS("[ios] IPA(appStore) uploading to testflight...");
 
     isSuccess = await RetryUtils.run(
@@ -144,6 +153,18 @@ class IosUploadService {
       );
     }
     return Printer.success("[ios] IPA(appStore) file uploaded to testflight");
+  }
+
+  /// Runs right after a build, before the next one replaces the archive's
+  /// dSYMs.
+  Future<bool> _handleSymbols(BuildTarget target) async {
+    final symbolService = this.symbolService;
+    if (symbolService == null) return true;
+    return await symbolService.handleBuild(
+      platform: AppPlatform.ios,
+      target: target,
+      buildParameters: config.buildParametersFor(target),
+    );
   }
 
   /// Reports how large the archive that was just built is. The run is never

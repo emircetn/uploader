@@ -197,6 +197,40 @@ class ProcessService {
     );
   }
 
+  /// Runs any command for [platform], streaming its output with the
+  /// platform's prefix. A dry run only prints it.
+  Future<bool> run({
+    required AppPlatform platform,
+    required String executable,
+    required List<String> arguments,
+    String? workingDirectory,
+  }) {
+    return _runProcess(
+      platform: platform,
+      executable: executable,
+      arguments: arguments,
+      workingDirectory: workingDirectory,
+    );
+  }
+
+  /// [arguments] as a dry run prints them: values with spaces quoted, App
+  /// Store Connect credentials masked and a tester list reduced to its
+  /// count, so the output can be shared.
+  static List<String> displayArguments(List<String> arguments) {
+    const masked = {'--apiKey', '--apiIssuer'};
+    return [
+      for (final (index, argument) in arguments.indexed)
+        switch (index == 0 ? null : arguments[index - 1]) {
+          final previous? when masked.contains(previous) => '***',
+          '--testers' =>
+            '<${argument.split(',').where((t) => t.trim().isNotEmpty).length} testers>',
+          _ when argument.contains(RegExp(r'\s')) =>
+            "'${argument.replaceAll("'", r"'\''")}'",
+          _ => argument,
+        },
+    ];
+  }
+
   List<String> _recipientArguments({
     required List<String>? testers,
     required List<String>? groups,
@@ -218,6 +252,7 @@ class ProcessService {
     required String executable,
     required List<String> arguments,
     Map<String, String>? environment,
+    String? workingDirectory,
     ProcessStartMode mode = ProcessStartMode.normal,
     void Function(String line)? onLine,
   }) async {
@@ -227,7 +262,8 @@ class ProcessService {
           '$key=$value ',
       ].join();
       Printer.info(
-        "[${platform.value}] would run: $env$executable ${arguments.join(' ')}",
+        "[${platform.value}] would run: $env$executable "
+        "${displayArguments(arguments).join(' ')}",
       );
       return true;
     }
@@ -237,6 +273,7 @@ class ProcessService {
         executable,
         arguments,
         environment: environment,
+        workingDirectory: workingDirectory,
         runInShell: true,
         mode: mode,
       );
