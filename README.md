@@ -73,6 +73,7 @@ uploader:
   useParallelUpload: true # default: true
   uploadRetryCount: 2 # extra attempts per upload step. default: 2
   enableLogFileCreation: false # default: false
+  failOnTodo: false # default: false
   extraBuildParameters: null
 ```
 
@@ -133,6 +134,18 @@ test tracks and the production rollout stays a Play Console decision.
 
 Only `platform` and `uploadType` are required. Every other key falls back to
 the default shown above.
+
+## TODO check
+
+Before the confirmation prompt the run lists `TODO` comments under `lib/`.
+Generated files (`*.g.dart`, `*.freezed.dart`, `*.gr.dart`) are skipped, and a
+`TODO` inside a string or an identifier is ignored. A project without `lib/`
+is left alone.
+
+The list is a warning, and the existing `y/n` is the only prompt. `--yes`
+continues, so a CI run is not broken by a leftover comment. Set
+`failOnTodo: true` when a non-interactive run should stop before anything is
+built. `--audit` lists the comments and does not stop.
 
 ## iOS size check
 

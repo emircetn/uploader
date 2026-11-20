@@ -7,8 +7,10 @@ import "package:uploader/src/helper/app_distribution_helper.dart";
 import "package:uploader/src/helper/firebase_account_helper.dart";
 import "package:uploader/src/helper/parse_helper.dart";
 import "package:uploader/src/helper/secret_helper.dart";
+import "package:uploader/src/helper/todo_helper.dart";
 import "package:uploader/src/model/app_detail.dart";
 import "package:uploader/src/model/symbols_config.dart";
+import "package:uploader/src/model/todo_finding.dart";
 import "package:uploader/src/service/android_upload_service.dart";
 import "package:uploader/src/service/ios_upload_service.dart";
 import "package:uploader/src/service/plugin_guard_service.dart";
@@ -23,6 +25,7 @@ class UploaderManager {
 
   final processService = ProcessService();
   final parseHelper = ParseHelper();
+  final todoHelper = TodoHelper();
 
   late final pluginStubService = PluginStubService(
     config: config.pluginStubs,
@@ -54,10 +57,24 @@ class UploaderManager {
         return Printer.error("[symbols] ${e.message}");
       }
 
+      final todos = todoHelper.find();
       showProjectDetails(
         appDetail,
         crashlytics: await _resolveCrashlyticsTarget(),
+        todos: todos,
       );
+
+      // Listed above. A --yes run cannot answer the prompt, so failOnTodo
+      // stops it here. An audit never uploads, so it only lists them.
+      if (todos.isNotEmpty &&
+          config.failOnTodo &&
+          !config.isAudit &&
+          config.cliOptions.skipConfirmation) {
+        return Printer.error(
+          "${_todoCount(todos.length)} in lib/. "
+          "Remove them or set failOnTodo: false.",
+        );
+      }
 
       if (config.isDryRun) {
         Printer.warning(
@@ -173,6 +190,7 @@ class UploaderManager {
   void showProjectDetails(
     AppDetail appDetail, {
     CrashlyticsTarget? crashlytics,
+    List<TodoFinding> todos = const [],
   }) {
     final platform = config.platform;
     final uploadType = config.uploadType;
@@ -398,7 +416,14 @@ class UploaderManager {
     }
 
     Printer.info("$info");
+    if (todos.isNotEmpty) {
+      Printer.warning(
+        ["---- TODO ----", for (final todo in todos) "$todo"].join("\n"),
+      );
+    }
   }
+
+  String _todoCount(int count) => "$count TODO comment${count == 1 ? "" : "s"}";
 
   String _archivePath(SymbolsConfig symbols) {
     try {

@@ -60,6 +60,11 @@ class PubspecParameters {
   /// not configured, which leaves runs exactly as they were.
   final SymbolsConfig? symbols;
 
+  /// When true, a non-interactive run (`--yes`) stops if `lib/` still has a
+  /// TODO comment. An interactive run lists them and keeps the single
+  /// confirmation prompt. An audit lists them and never stops.
+  final bool failOnTodo;
+
   bool get checkIosStoreParameters => checkString(testFlightConfigPath);
 
   bool get checkAndroidStoreParameters => checkString(playStoreConfigPath);
@@ -91,6 +96,7 @@ class PubspecParameters {
     this.allowedPluginsPath,
     this.verifyPluginStubs = true,
     this.symbols,
+    this.failOnTodo = false,
   });
 
   factory PubspecParameters.fromPubspec(Map<dynamic, dynamic> map) {
@@ -189,6 +195,7 @@ class PubspecParameters {
       allowedPluginsPath: uploaderMap?[PubspecKeys.allowedPluginsPath],
       verifyPluginStubs: uploaderMap?[PubspecKeys.verifyPluginStubs] ?? true,
       symbols: _parseSymbols(uploaderMap?[PubspecKeys.symbols]),
+      failOnTodo: uploaderMap?[PubspecKeys.failOnTodo] == true,
     );
   }
 
