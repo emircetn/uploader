@@ -1,5 +1,9 @@
 ## 1.3.0
 
+### TODO check
+
+- Before confirmation, the run lists `TODO` comments in `lib/`. Generated files and matches outside a comment are ignored. `--yes` still continues unless `failOnTodo: true`, which stops the run before anything is built. `--audit` lists them and does not stop. See "TODO check" in the README
+
 ### Crash symbols
 
 - Added `symbols`: each build's `mapping.txt`, Crashlytics mapping file id, unstripped native libraries, dSYMs and `--split-debug-info` output are compressed into an archive outside the project as soon as the build ends, before the next build of the same run overwrites them. They are uploaded once the run's distribution uploads are done, so a crash reporter never holds back a release. See "Crash symbols" in the README

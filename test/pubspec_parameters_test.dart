@@ -28,6 +28,12 @@ uploader:
       expect(params.uploadRetryCount, 2);
     });
 
+    test('failOnTodo is off unless set to true', () {
+      expect(params.failOnTodo, isFalse);
+      expect(parse('uploader:\n  failOnTodo: true\n').failOnTodo, isTrue);
+      expect(parse('uploader:\n  failOnTodo: "true"\n').failOnTodo, isFalse);
+    });
+
     test('optional lists stay null rather than empty', () {
       expect(params.extraBuildParameters, isNull);
       expect(params.appDistributionAndroidGroups, isNull);

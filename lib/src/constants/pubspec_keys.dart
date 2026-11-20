@@ -31,6 +31,7 @@ class PubspecKeys {
   static const String useParallelUpload = 'useParallelUpload';
   static const String uploadRetryCount = 'uploadRetryCount';
   static const String enableLogFileCreation = 'enableLogFileCreation';
+  static const String failOnTodo = 'failOnTodo';
 
   static const String pluginStubs = 'pluginStubs';
   static const String all = 'all';

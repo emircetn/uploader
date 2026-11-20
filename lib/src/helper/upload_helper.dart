@@ -214,6 +214,7 @@ class UploadHelper {
       allowedPluginsPath: pubspecParameters.allowedPluginsPath,
       verifyPluginStubs: pubspecParameters.verifyPluginStubs,
       symbols: pubspecParameters.symbols,
+      failOnTodo: pubspecParameters.failOnTodo,
       cliOptions: cliOptions,
     );
   }

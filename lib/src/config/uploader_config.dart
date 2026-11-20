@@ -41,6 +41,9 @@ class UploaderConfig {
   /// Null when symbols are neither archived nor uploaded.
   final SymbolsConfig? symbols;
 
+  /// When true, a `--yes` run stops if `lib/` still has a TODO comment.
+  final bool failOnTodo;
+
   final CliOptions cliOptions;
 
   UploaderConfig({
@@ -62,6 +65,7 @@ class UploaderConfig {
     this.allowedPluginsPath,
     this.verifyPluginStubs = true,
     this.symbols,
+    this.failOnTodo = false,
     this.cliOptions = const CliOptions(),
   });
 
